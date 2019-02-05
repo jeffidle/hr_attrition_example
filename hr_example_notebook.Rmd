@@ -1,0 +1,326 @@
+---
+title: "Example HR research using interactive R Markdown"
+date: "February 4, 2019"
+author: "Jeff Idle"
+output: html_notebook
+runtime: shiny
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Purpose and Background
+The purpose of this analysis is to showcase the capabilities of interactive R Markdown documents. R Markdown documents are great for integrating analysis with visualizations. Interactive R Markdown documents provide a better way to engage your stakeholders and let them explore your analysis further. IBM posted a sample Human Resources Employee Attrition and Performance dataset on their [Watson Analytics Community web site](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/). The imaginary stakeholders for this example analysis will be the CEO and HR VP for a fictional medium-sized company. Our fictional company researches and designs productivity and entertainment peripherals that can be biologically integrated with the human body and connect to the IoT (Internet of Things). Our fictional company is called "Shadow Run, Inc.". For purposes of this analysis, we will assume all of the attrition in our dataset represents voluntary turnover.
+
+
+# Business Questions
+Our analytics team met with Shadow Run's CEO and HR VP to discuss their critical workforce planning and management questions. They identified and prioritized research into the following three questions:
+
+  1. At what levels of service with the company do we have the greatest risk of losing employees?
+  2. What are the key drivers of Shadow Run's turnover?
+  3. Can we develop a model to predict the risk of losing our currently active employees?
+
+
+# Executive Summary
+Our analytics team found the following:
+  * **High risk levels of service >>** TBD
+  * **Voluntary turnover drivers >>** TBD
+  * **Turnover risk model >>** TBD
+
+
+# Methodologies
+  * Survival analysis
+  * Logistic regression
+  * Machine learning
+
+
+# Analysis
+The starting point for every analysis is to become familiar with the data. 
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(shiny)
+library(survival)
+library(survminer)
+library(ggfortify)
+library(scales)
+library(lubridate)
+library(caret)
+library(randomForest)
+library(ipred)
+library(gbm)
+library(broom)
+library(rlang)
+library(gridExtra)
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+attrition_df <- read.csv("data/ibm_attrition.csv", stringsAsFactors = FALSE)
+attrition_ref_data_df <- read.csv("data/ibm_attrition_ref_data.csv", stringsAsFactors = FALSE)
+#training_df <- read.csv("data/ibm_training.csv", stringsAsFactors = FALSE)
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "Education", 2:3], by.x = "Education", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "EducationText"
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "EnvironmentSatisfaction", 2:3], by.x = "EnvironmentSatisfaction", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "EnvironmentSatisfactionText"
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "JobInvolvement", 2:3], by.x = "JobInvolvement", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "JobInvolvementText"
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "JobSatisfaction", 2:3], by.x = "JobSatisfaction", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "JobSatisfactionText"
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "PerformanceRating", 2:3], by.x = "PerformanceRating", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "PerformanceRatingText"
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "RelationshipSatisfaction", 2:3], by.x = "RelationshipSatisfaction", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "RelationshipSatisfactionText"
+
+attrition_df <- merge(x = attrition_df, y = attrition_ref_data_df[attrition_ref_data_df$column == "WorkLifeBalance", 2:3], by.x = "WorkLifeBalance", by.y = "code", all.x = TRUE, all.y = FALSE)
+col_count <- ncol(attrition_df)
+colnames(attrition_df)[col_count] <- "WorkLifeBalanceText"
+
+attrition_df <- attrition_df %>%
+        mutate(censor = ifelse(Attrition == "Yes", 1, 0))
+
+attrition_df <- as.data.frame(unclass(attrition_df))
+
+attrition_data_df <- attrition_df[ , c(16:42, 8:14, 43)]
+attrition_data_df$censor <- factor(attrition_data_df$censor)
+attrition_df$Attrition <- factor(attrition_df$Attrition, levels = c("Yes", "No"))
+
+```
+
+#### Exploratory analysis
+
+```{r echo = FALSE}
+
+term_dist_viz <- ggplot(attrition_df, aes(x = Attrition, fill = Attrition)) +
+        geom_bar() +
+        geom_text(stat = "count", aes(label = ..count..), hjust = -0.5) +
+        scale_fill_manual(values = c("#ED8800", "#5378b5")) +
+        labs(title = "Employee count by attrition category", subtitle = "(no = currently active; yes = terminated)", x = "", y = "") +
+        coord_flip() +
+        theme(panel.background = element_blank(),
+              axis.line.x = element_blank(),
+              axis.line.y = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.text.x = element_blank(),
+              legend.position = "none")
+
+renderPlot({
+  term_dist_viz
+})
+
+```
+
+Data exploration
+
+```{r echo = FALSE}
+
+selectInput(inputId = "explore_dim", label = "Choose the variable that you would like to explore:",
+            choices = c("Gender", "Department", "Education", "Education Field", "Business Travel", "Overtime", "Stock Options Level",
+                        "Job Satisfaction", "Work/Life Balance"), selected = "Gender")
+
+dim1_select <- reactive({
+        switch(input$explore_dim,
+               "Gender" = attrition_df$Gender,
+               "Department" = attrition_df$Department,
+               "Education" = attrition_df$EducationText,
+               "Education Field" = attrition_df$EducationField,
+               "Business Travel" = attrition_df$BusinessTravel,
+               "Overtime" = attrition_df$OverTime,
+               "Stock Options Level" = attrition_df$StockOptionLevel,
+               "Job Satisfaction" = attrition_df$JobSatisfactionText,
+               "Work/Life Balance" = attrition_df$WorkLifeBalanceText)
+        })
+
+renderPlot({
+        
+        explore_dist_viz <- ggplot(attrition_df, aes(x = dim1_select())) +
+                geom_bar(fill = "#8f8f8f") +
+                geom_text(stat = "count", aes(label = ..count..), hjust = 1.5, color = "#ffffff") +
+                labs(title = paste0("Employee count distribution"), x = "", y = "") +
+                coord_flip() +
+                theme(panel.background = element_blank(),
+                      axis.line.x = element_blank(),
+                      axis.line.y = element_blank(),
+                      axis.ticks.x = element_blank(),
+                      axis.ticks.y = element_blank(),
+                      axis.text.x = element_blank(),
+                      legend.position = "none")
+        
+        explore2_dist_viz <- ggplot(attrition_df, aes(x = dim1_select(), y = EmployeeCount, fill = Attrition)) +
+                geom_bar(position = "fill", stat = "identity") +
+                labs(title = paste0("Active versus terminated distribution"), x = "", y = "") +
+                scale_fill_manual(values = c("#ED8800", "#5378b5")) +
+                scale_y_continuous(label = percent_format()) +
+                coord_flip() +
+                theme(panel.background = element_blank(),
+                      axis.line.y = element_blank(),
+                      axis.ticks.y = element_blank())
+        
+        explore2_dist_viz
+        
+        grid.arrange(explore_dist_viz, explore2_dist_viz, ncol = 2)
+        
+})
+
+```
+
+#### Survival Analysis
+
+```{r echo = FALSE}
+
+surv_object <- Surv(time = attrition_df$YearsAtCompany, event = attrition_df$censor)
+
+fit1 <- survfit(surv_object ~ 1, data = attrition_df)
+
+model_df <- fortify(fit1)
+
+model_top20_df <- model_df %>%
+        arrange(time) %>%
+        mutate(avg_probability_decrease = lag(surv) - surv) %>%
+        filter(time <= 20 & time > 0)
+
+#ggsurvplot(fit1, data = attrition_df, pval = TRUE, risk.table = TRUE, surv.median.line = "hv")
+
+survival_viz <- ggplot(model_df, aes(x = time, y = surv)) +
+        geom_line(size = 1.25) +
+        scale_y_continuous(label = percent_format()) +
+        labs(title = "Retention probability analysis", subtitle = "", x = "years at company", y = "retention probability") +
+        theme_minimal()
+
+risk_viz <- ggplot(model_top20_df, aes(x = reorder(time, desc(time)), y = avg_probability_decrease)) +
+        geom_bar(stat = "identity") +
+        scale_y_continuous(label = percent_format()) +
+        coord_flip() +
+        labs(title = "Increase in retention risk for each year of service", subtitle = "", x = "tenure (years)", y = "average retention risk increase") +
+        theme_minimal()
+
+renderPlot({
+  grid.arrange(survival_viz, risk_viz, ncol = 2)
+})
+
+```
+
+
+```{r echo = FALSE}
+
+attrition_df <- attrition_df %>%
+        mutate(censor = ifelse(Attrition == "Yes", 1, 0))
+
+selectInput(inputId = "survival_slice", label = "Choose the dimension by which you'd like to slice the retention analysis:", 
+  choices = c("Gender", "Department", "Education", "Education Field", "Business Travel", "Overtime", "Stock Options Level",
+              "Job Satisfaction", "Work/Life Balance"), selected = "Gender")
+
+dimension_choice <- reactive({
+        switch(input$survival_slice,
+               "Gender" = attrition_df$Gender,
+               "Department" = attrition_df$Department,
+               "Education" = attrition_df$EducationText,
+               "Education Field" = attrition_df$EducationField,
+               "Business Travel" = attrition_df$BusinessTravel,
+               "Overtime" = attrition_df$OverTime,
+               "Stock Options Level" = attrition_df$StockOptionLevel,
+               "Job Satisfaction" = attrition_df$JobSatisfactionText,
+               "Work/Life Balance" = attrition_df$WorkLifeBalanceText)
+        })
+
+renderPlot({
+        
+        fit2 <- survfit(surv_object ~ dimension_choice(), data = attrition_df)
+        
+        model2_df <- fortify(fit2)
+        
+        model2_top20_df <- model2_df %>%
+                arrange(strata, time) %>%
+                mutate(avg_probability_decrease = lag(surv) - surv) %>%
+                filter(time <= 20 & time > 0)
+        
+        survival2_viz <- ggplot(model2_df, aes(x = time, y = surv, color = strata)) +
+                geom_line(size = 1.25) +
+                scale_y_continuous(label = percent_format()) +
+                labs(title = "Retention probability analysis", subtitle = "", x = "years at company", y = "retention probability") +
+                theme_minimal()
+        
+        risk2_viz <- ggplot(model2_top20_df, aes(x = reorder(time, desc(time)), y = avg_probability_decrease)) +
+                geom_bar(stat = "identity") +
+                scale_y_continuous(label = percent_format()) +
+                facet_wrap(~strata) +
+                coord_flip() +
+                labs(title = "Increase in retention risk for each year of service", subtitle = "", x = "tenure (years)", y = "average retention risk increase") +
+                theme_minimal()
+        
+        grid.arrange(survival2_viz, risk2_viz, ncol = 2)
+        
+        })
+
+```
+
+#### Driver Analysis
+
+```{r echo = FALSE}
+
+model_input_data_df <- attrition_data_df[ , c(2:9, 11:28, 30:35)]
+
+set.seed(1)
+
+options(scipen = 999)
+
+fit_rf <- randomForest(censor ~ ., data = model_input_data_df)
+
+# Create an importance based on mean decreasing gini
+gini_df <- as.data.frame(importance(fit_rf))
+
+```
+
+#### Predictive Modeling
+
+```{r}
+
+glm_model <- glm(censor ~ ., data = model_input_data_df, family = "binomial")
+
+glm_df <- tidy(glm_model)
+
+varImp(glm_model)
+
+```
+
+
+
+# Conclusion
+
+
+# References and Resources
+Following are the online articles and resources I used in compiling this analysis:
+
+
+  * **Sample attrition data posted by IBM >>** https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/
+  * **Interactive Shiny documents >>**
+    * https://bookdown.org/yihui/rmarkdown/shiny-documents.html
+    * https://rmarkdown.rstudio.com/lesson-14.html
+  * **Survival analysis >>** https://www.datacamp.com/community/tutorials/survival-analysis-R
+  * **Feature selection >>** 
+    * https://www.r-bloggers.com/feature-selection-using-the-caret-package/
+    * http://dataaspirant.com/2018/01/15/feature-selection-techniques-r/
+  * **Logistic regression >>** TBD 
+  * **Technical troubleshooting >>** https://stackoverflow.com/
+
+
+
+

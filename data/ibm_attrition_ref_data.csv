@@ -1,0 +1,30 @@
+column,code,value
+Education,1,Below College
+Education,2,College
+Education,3,Bachelor
+Education,4,Master
+Education,5,Doctor
+EnvironmentSatisfaction,1,Low
+EnvironmentSatisfaction,2,Medium
+EnvironmentSatisfaction,3,High
+EnvironmentSatisfaction,4,Very High
+JobInvolvement,1,Low
+JobInvolvement,2,Medium
+JobInvolvement,3,High
+JobInvolvement,4,Very High
+JobSatisfaction,1,Low
+JobSatisfaction,2,Medium
+JobSatisfaction,3,High
+JobSatisfaction,4,Very High
+PerformanceRating,1,Low
+PerformanceRating,2,Good
+PerformanceRating,3,Excellent
+PerformanceRating,4,Outstanding
+RelationshipSatisfaction,1,Low
+RelationshipSatisfaction,2,Medium
+RelationshipSatisfaction,3,High
+RelationshipSatisfaction,4,Very High
+WorkLifeBalance,1,Bad
+WorkLifeBalance,2,Good
+WorkLifeBalance,3,Better
+WorkLifeBalance,4,Best
