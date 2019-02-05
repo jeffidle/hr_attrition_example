@@ -52,6 +52,7 @@ library(gbm)
 library(broom)
 library(rlang)
 library(gridExtra)
+library(klaR)
 
 ```
 
@@ -289,7 +290,102 @@ gini_df <- as.data.frame(importance(fit_rf))
 
 ```
 
-#### Predictive Modeling
+# Machine Learning and Predictive Modeling
+
+### Data Collection
+
+```{r}
+
+modeling_data_df <- attrition_data_df
+
+# Remove StandardHours and Over18 since there is no variation and remove Attrition since it is redundant
+modeling_data_df <- modeling_data_df[ , -c(10, 13, 29)]
+
+colnames(modeling_data_df)[32] <- "terminated"
+
+```
+
+
+### Data Preparation
+
+Split the data into test and training datasets. The training dataset is used to build the model and the test dataset is used to evaluate the accuracy and precision of the model.
+
+```{r echo = FALSE}
+
+set.seed(1)
+
+# Split the data into training and test set
+training_samples_df <- modeling_data_df$EmployeeNumber %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_data_df  <- modeling_data_df[training_samples_df, ]
+test_data_df <- modeling_data_df[-training_samples_df, ]
+
+```
+
+
+
+### Build and Train the Models - Naive Bayes, Decision Trees and Logistic Regression
+
+Naive Bayes classifier
+
+```{r echo = FALSE}
+
+set.seed(1)
+
+# Fit the model
+model_nb <- NaiveBayes(terminated ~ ., data = train_data_df)
+
+# Make predictions
+predictions_nb <- model_nb %>% predict(test_data_df)
+
+# Model accuracy
+model_build_accuracy_nb <- mean(predictions_nb$class == test_data_df$terminated)
+model_build_cm_nb <- confusionMatrix(predictions_nb$class, test_data_df$terminated)
+
+# F-Score: 2 * precision * recall /(precision + recall):
+f_score_nb_build <- (2 * model_build_cm_nb$byClass[5] * model_build_cm_nb$byClass[6]) / (model_build_cm_nb$byClass[5] + model_build_cm_nb$byClass[6])
+
+```
+
+
+
+### Evaluate Model Performance
+
+
+
+```{r echo = FALSE}
+
+# Build the model
+set.seed(1)
+model_test_df <- train(terminated ~ ., data = train_data_df, method = "nb", 
+               trControl = trainControl("cv", number = 10))
+
+# Make predictions
+predicted_classes_nb <- model_test_df %>% predict(test_data_df)
+
+# Calculate the confusion matrix
+model_trained_cm_nb <- confusionMatrix(predicted_classes_nb, test_data_df$terminated)
+
+# Model validation metrics
+# F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
+
+nb_trained_metrics_df <- as.data.frame(model_trained_cm_nb$byClass)
+names(nb_trained_metrics_df) <- "nb_trained_model"
+nb_trained_metrics_df$metric <- row.names(nb_trained_metrics_df)
+model_trained_accuracy_nb <- mean(predicted_classes_nb == test_data_df$terminated)
+x_df <- data.frame(
+        nb_trained_model = model_trained_accuracy_nb,
+        metric = "Accuracy"
+)
+nb_trained_metrics_df <- bind_rows(nb_trained_metrics_df, x_df)
+
+```
+
+
+### Improve Model Performance
+
+
 
 ```{r}
 
@@ -309,7 +405,8 @@ varImp(glm_model)
 # References and Resources
 Following are the online articles and resources I used in compiling this analysis:
 
-
+  * **Employee attrition articles and references >>**
+    * *Extended Tutorial: How to Predict Employee Turnover >>* https://www.hranalytics101.com/extended-tutorial-how-to-predict-employee-turnover/
   * **Sample attrition data posted by IBM >>** https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/
   * **Interactive Shiny documents >>**
     * https://bookdown.org/yihui/rmarkdown/shiny-documents.html
@@ -318,8 +415,15 @@ Following are the online articles and resources I used in compiling this analysi
   * **Feature selection >>** 
     * https://www.r-bloggers.com/feature-selection-using-the-caret-package/
     * http://dataaspirant.com/2018/01/15/feature-selection-techniques-r/
-  * **Logistic regression >>** TBD 
+  * **Machine Learning/Predictive Modeling >>** *Machine Learning with R*, (2013) by Brett Lantz 
+    * **Naive Bayes >> ** 
+      * https://www.r-bloggers.com/understanding-naive-bayes-classifier-using-r/
+      * *Naive Bayes Classifier Essentials >>* http://www.sthda.com/english/articles/36-classification-methods-essentials/145-naive-bayes-classifier-essentials/
+    * **Logistic regression >>** TBD 
+  * **Online tools >>** 
+    * https://www.google.com/search?q=color+picker
   * **Technical troubleshooting >>** https://stackoverflow.com/
+    * https://stackoverflow.com/questions/8499361/easy-way-of-counting-precision-recall-and-f1-score-in-r
 
 
 
