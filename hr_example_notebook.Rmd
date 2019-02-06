@@ -9,7 +9,9 @@ editor_options:
 ---
 
 # Purpose and Background
-The purpose of this analysis is to showcase the capabilities of interactive R Markdown documents. R Markdown documents are great for integrating analysis with visualizations. Interactive R Markdown documents provide a better way to engage your stakeholders and let them explore your analysis further. IBM posted a sample Human Resources Employee Attrition and Performance dataset on their [Watson Analytics Community web site](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/). The imaginary stakeholders for this example analysis will be the CEO and HR VP for a fictional medium-sized company. Our fictional company researches and designs productivity and entertainment peripherals that can be biologically integrated with the human body and connect to the IoT (Internet of Things). Our fictional company is called "Shadow Run, Inc.". For purposes of this analysis, we will assume all of the attrition in our dataset represents voluntary turnover. The source code for this analysis can be found on Github at https://github.com/jeffidle/hr_attrition_example.
+The purpose of this analysis is to showcase the capabilities of interactive R Markdown documents. R Markdown documents are great for integrating analysis with visualizations. Interactive R Markdown documents provide a better way to engage your stakeholders and let them explore your analysis further. IBM posted a sample Human Resources Employee Attrition and Performance dataset on their [Watson Analytics Community web site](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/). The imaginary stakeholders for this example analysis will be the CEO and HR VP for a fictional medium-sized company. Our fictional company researches and designs productivity and entertainment peripherals that can be biologically integrated with the human body and connect to the IoT (Internet of Things). Our fictional company is called "Shadowrun, Inc.". The dataset does not contain hire dates or termination dates, so for purposes of this analysis we will assume all of the attrition in our dataset represents voluntary turnover for the last five years. The source code for this analysis can be found on Github at https://github.com/jeffidle/hr_attrition_example.
+
+**NOTE:**  Please note that this analysis is an example for illustrative purposes only. As such, this analysis is not guaranteed to be error-free or copied without further analysis and modifications to fit the situation to which it is being applied. 
 
 
 # Business Questions
@@ -22,19 +24,22 @@ Our analytics team met with Shadow Run's CEO and HR VP to discuss their critical
 
 # Executive Summary
 Our analytics team found the following:
+
   * **High risk levels of service >>** TBD
   * **Voluntary turnover drivers >>** TBD
   * **Turnover risk model >>** TBD
 
 
 # Methodologies
-  * Survival analysis
-  * Logistic regression
-  * Machine learning
+We utilized several methodologies in answering the business questions. Following are the methods we applied for each business question.
+
+  * **Retention risk by years of service >>** Survival analysis
+  * **Voluntary turnover drivers >>** Random forest & logistic regression
+  * **Retention risk model >>** Machine learning, logistic regression, naive Bayes, random forest & regression trees
 
 
 # Analysis
-The starting point for every analysis is to become familiar with the data. 
+The analysis that follows will start with exploratory analyses to understand the data. We will then analyze the data to answer the question about years of service where retention risk is greatest. Next we will analyze the key drivers that are highly correlated with turnover during the last 5 years. Finally, we will create a predictive model that enables us to assess the risk of losing our currently active employees and estimate the risk of losing any new employees that join the organization.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
@@ -107,7 +112,9 @@ attrition_df$Attrition <- factor(attrition_df$Attrition, levels = c("Yes", "No")
 
 ```
 
+
 #### Exploratory analysis
+The starting point for every analysis is to become familiar with the data. You can view the raw data [here](https://github.com/jeffidle/hr_attrition_example/blob/master/data/ibm_attrition.csv). We would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
 
 ```{r echo = FALSE}
 
@@ -131,7 +138,8 @@ renderPlot({
 
 ```
 
-Data exploration
+
+The drop-down box below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
 
 ```{r echo = FALSE}
 
@@ -185,7 +193,13 @@ renderPlot({
 
 ```
 
-#### Survival Analysis
+
+#### Retention Risk by Years of Service
+Understanding whether there are years throughout an employee's tenure in which retention risk is highest can help Shadowrun create focused and targeted retention programs. Targeted programs should be more effective than one-size-fits-all programs because targeted programs are tailored to the specific needs of the population at risk. By leveraging the survival analysis methodology in the context of employee attrition, we can assess the average drop in retention probability for each year of service to identify those years in which retention risk is greatest.
+
+The chart on the left shows how the probability of retaining Shadowrun employees drops as tenure increases. This is expected to some extent--everyone will retire someday and that is part of voluntary termination. If all Shadowrun employees were hired directly from high school or college and stayed until they retired, then the "survival curve" would bow outward to the right. If employees were leaving within relatively short periods of time, then the "survival curve" would bow inward to the left. Shadowrun's curve bows outward to the right, which tells us that our employees tend to stay with us. In fact, our employees have a 25% probability of staying with us for 15 years and 40% probability of staying with us for 31 years. The first half of the curve is generally smooth, which tells us there isn't a lot of year-over-year variation. The jagged portions at the end of the curve exist simply because there is a very small population of employees at those tenure levels. 
+
+The chart on the right shows the average reduction in retention probability for each year of service. This chart focuses on the first 20 years since that constitutes the bulk of our workforce. The overall average decrease in retention probability for each year of service is 1.4% if we exclude the outlier in year 40. We can see in years 1 and 10 that the decrease is around 4%--nearly 3x the average. We should work with Shadowrun's HR Business Partners to better understand what might be going on in these years. The first year spike is not unexpected and may be due to onboarding, poor culutural fit, or other factors common to employees accepting a new job at a new company. The tenth-year spike, however, is unusual and should be investigated further.
 
 ```{r echo = FALSE}
 
@@ -198,9 +212,15 @@ model_df <- fortify(fit1)
 model_top20_df <- model_df %>%
         arrange(time) %>%
         mutate(avg_probability_decrease = lag(surv) - surv) %>%
-        filter(time <= 20 & time > 0)
+        filter(time < 40 & time > 0)
 
-#ggsurvplot(fit1, data = attrition_df, pval = TRUE, risk.table = TRUE, surv.median.line = "hv")
+mean_rr <- mean(model_top20_df$avg_probability_decrease, na.rm = TRUE)
+sd_rr <- sd(model_top20_df$avg_probability_decrease, na.rm = TRUE)
+sd15_top_rr <- mean_rr + (1.5 * sd_rr)
+
+model_top20_df <- model_top20_df %>%
+        mutate(risk_increase_size = ifelse(avg_probability_decrease >= sd15_top_rr, ">= 1.5 standard deviations", "< 1.5 standard deviations")) %>%
+        filter(time <= 20 & time > 0)
 
 survival_viz <- ggplot(model_df, aes(x = time, y = surv)) +
         geom_line(size = 1.25) +
@@ -208,9 +228,12 @@ survival_viz <- ggplot(model_df, aes(x = time, y = surv)) +
         labs(title = "Retention probability analysis", subtitle = "", x = "years at company", y = "retention probability") +
         theme_minimal()
 
-risk_viz <- ggplot(model_top20_df, aes(x = reorder(time, desc(time)), y = avg_probability_decrease)) +
+risk_viz <- ggplot(model_top20_df, aes(x = reorder(time, desc(time)), y = avg_probability_decrease, fill = risk_increase_size)) +
         geom_bar(stat = "identity") +
+        scale_fill_manual(values = c("#798396", "#ED8800")) +
         scale_y_continuous(label = percent_format()) +
+        geom_hline(yintercept = mean_rr, color = "#8F8F8F", size = 2, alpha = 0.5) +
+        annotate("text", label = "- overall average = 1.4%", x = 5, y = 0.016, vjust = 0, hjust = 0.005) +
         coord_flip() +
         labs(title = "Increase in retention risk for each year of service", subtitle = "", x = "tenure (years)", y = "average retention risk increase") +
         theme_minimal()
@@ -221,6 +244,9 @@ renderPlot({
 
 ```
 
+
+
+Overall, we don't have major concerns about retention risk by tenure, but we should investigate the spikes in years 1 and 10. We would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What we don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
 
 ```{r echo = FALSE}
 
@@ -253,6 +279,14 @@ renderPlot({
         model2_top20_df <- model2_df %>%
                 arrange(strata, time) %>%
                 mutate(avg_probability_decrease = lag(surv) - surv) %>%
+                filter(time < 40 & time > 0)
+        
+        mean_rr2 <- mean(model2_top20_df$avg_probability_decrease, na.rm = TRUE)
+        sd_rr2 <- sd(model2_top20_df$avg_probability_decrease, na.rm = TRUE)
+        sd15_top_rr2 <- mean_rr2 + (1.5 * sd_rr2)
+        
+        model2_top20_df <- model2_top20_df %>%
+                mutate(risk_increase_size = ifelse(avg_probability_decrease >= sd15_top_rr, ">= 1.5 standard deviations", "< 1.5 standard deviations")) %>%
                 filter(time <= 20 & time > 0)
         
         survival2_viz <- ggplot(model2_df, aes(x = time, y = surv, color = strata)) +
@@ -261,13 +295,16 @@ renderPlot({
                 labs(title = "Retention probability analysis", subtitle = "", x = "years at company", y = "retention probability") +
                 theme_minimal()
         
-        risk2_viz <- ggplot(model2_top20_df, aes(x = reorder(time, desc(time)), y = avg_probability_decrease)) +
+        risk2_viz <- ggplot(model2_top20_df, aes(x = reorder(time, desc(time)), y = avg_probability_decrease, fill = risk_increase_size)) +
                 geom_bar(stat = "identity") +
+                geom_hline(yintercept = mean_rr2, color = "#8F8F8F", size = 2, alpha = 0.5) +
+                scale_fill_manual(values = c("#798396", "#ED8800")) +
                 scale_y_continuous(label = percent_format()) +
                 facet_wrap(~strata) +
                 coord_flip() +
-                labs(title = "Increase in retention risk for each year of service", subtitle = "", x = "tenure (years)", y = "average retention risk increase") +
-                theme_minimal()
+                labs(title = "Increase in retention risk for each year of service", subtitle = paste0("(overall average = ", percent(mean_rr2, 3), ")"), x = "tenure (years)", y = "average retention risk increase") +
+                theme(panel.background = element_blank(),
+                      panel.grid.major.x = element_line(color = "#dee2e8"))
         
         grid.arrange(survival2_viz, risk2_viz, ncol = 2)
         
@@ -317,7 +354,7 @@ Key drivers
 # Set Gini index cutoff
 
 numericInput(inputId = "gini_cutoff", label = "Choose the Gini cut-off point below which you want to exclude variables:",
-            min = min(driver_imp_rf$Overall), max = max(driver_imp_rf$Overall), value = max(driver_imp_rf$Overall))
+            min = min(driver_imp_rf$Overall), max = max(driver_imp_rf$Overall), value = 15)
 
 renderTable({
         
