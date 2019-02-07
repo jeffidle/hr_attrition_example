@@ -65,6 +65,37 @@ library(gt)
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
+color_test_df <- data.frame(
+        
+        letter = letters[1:10],
+        number = seq(11:20)
+        
+)
+
+custom_palette <- c("#000000",
+                    "#8f8f8f",
+                    "#5378b5",
+                    "#f46242",
+                    "#1bb764",
+                    "#cc4b4b",
+                    "#8a32c1",
+                    "#398ed3",
+                    "#aa9620",
+                    "#d83aae")
+
+color_test_viz <- ggplot(color_test_df, aes(x = letter, y = number, fill = letter)) +
+        geom_bar(stat = "identity") +
+        scale_fill_manual(values = custom_palette) +
+        coord_flip() +
+        theme_minimal()
+
+#color_test_viz
+
+```
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
 attrition_df <- read.csv("data/ibm_attrition.csv", stringsAsFactors = FALSE)
 attrition_ref_data_df <- read.csv("data/ibm_attrition_ref_data.csv", stringsAsFactors = FALSE)
 #training_df <- read.csv("data/ibm_training.csv", stringsAsFactors = FALSE)
@@ -237,19 +268,24 @@ The drop-down box below allows you to view the counts of employees by the select
 ```{r echo = FALSE}
 
 selectInput(inputId = "explore_dim", label = "Choose the variable that you would like to explore:",
-            choices = c("Gender", "Department", "Education", "Education Field", "Business Travel", "Overtime", "Stock Options Level",
-                        "Job Satisfaction", "Work/Life Balance"), selected = "Gender")
+            choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
+                        "Job Satisfaction", "Marital Status", "Overtime", "Peformance Rating", "Relationship Satisfaction",
+                        "Stock Options Level", "Work/Life Balance"), selected = "Gender")
 
 dim1_select <- reactive({
         switch(input$explore_dim,
-               "Gender" = attrition_df$Gender,
+               "Business Travel" = attrition_df$BusinessTravel,
                "Department" = attrition_df$Department,
                "Education" = attrition_df$EducationText,
                "Education Field" = attrition_df$EducationField,
-               "Business Travel" = attrition_df$BusinessTravel,
-               "Overtime" = attrition_df$OverTime,
-               "Stock Options Level" = attrition_df$StockOptionLevel,
+               "Gender" = attrition_df$Gender,
+               "Job Involvement" = attrition_df$JobInvolvementText,
+               "Job Role" = attrition_df$JobRole,
                "Job Satisfaction" = attrition_df$JobSatisfactionText,
+               "Marital Status" = attrition_df$MaritalStatus,
+               "Overtime" = attrition_df$OverTime,
+               "Performance Rating" = attrition_df$PerformanceRatingText,
+               "Stock Options Level" = attrition_df$StockOptionLevel,
                "Work/Life Balance" = attrition_df$WorkLifeBalanceText)
         })
 
@@ -344,19 +380,24 @@ Overall, we don't have major concerns about retention risk by tenure, but we sho
 ```{r echo = FALSE}
 
 selectInput(inputId = "survival_slice", label = "Choose the dimension by which you'd like to slice the retention analysis:", 
-  choices = c("Gender", "Department", "Education", "Education Field", "Business Travel", "Overtime", "Stock Options Level",
-              "Job Satisfaction", "Work/Life Balance"), selected = "Gender")
+  choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
+                        "Job Satisfaction", "Marital Status", "Overtime", "Peformance Rating", "Relationship Satisfaction",
+                        "Stock Options Level", "Work/Life Balance"), selected = "Gender")
 
 dimension_choice <- reactive({
         switch(input$survival_slice,
-               "Gender" = attrition_df$Gender,
+               "Business Travel" = attrition_df$BusinessTravel,
                "Department" = attrition_df$Department,
                "Education" = attrition_df$EducationText,
                "Education Field" = attrition_df$EducationField,
-               "Business Travel" = attrition_df$BusinessTravel,
-               "Overtime" = attrition_df$OverTime,
-               "Stock Options Level" = attrition_df$StockOptionLevel,
+               "Gender" = attrition_df$Gender,
+               "Job Involvement" = attrition_df$JobInvolvementText,
+               "Job Role" = attrition_df$JobRole,
                "Job Satisfaction" = attrition_df$JobSatisfactionText,
+               "Marital Status" = attrition_df$MaritalStatus,
+               "Overtime" = attrition_df$OverTime,
+               "Performance Rating" = attrition_df$PerformanceRatingText,
+               "Stock Options Level" = attrition_df$StockOptionLevel,
                "Work/Life Balance" = attrition_df$WorkLifeBalanceText)
         })
 
@@ -379,8 +420,11 @@ renderPlot({
                 mutate(risk_increase_size = ifelse(avg_probability_decrease >= sd15_top_rr, ">= 1.5 standard deviations", "< 1.5 standard deviations")) %>%
                 filter(time <= 20 & time > 0)
         
+        level_count <- length(model2_df$strata)
+        
         survival2_viz <- ggplot(model2_df, aes(x = time, y = surv, color = strata)) +
                 geom_line(size = 1.25) +
+                scale_color_manual(values = custom_palette[1:level_count]) +
                 scale_y_continuous(label = percent_format()) +
                 labs(title = "Retention probability analysis", subtitle = "", x = "years at company", y = "retention probability") +
                 theme_minimal()
@@ -404,7 +448,11 @@ renderPlot({
 
 #### Driver Analysis
 
-Important variables
+Understanding the factors that are more highly correlated with attrition can help us investigate root causes and develop programs, policies or processes to address those root causes. Note that **correlation is not causation**. If we find correlations between a factor and attrition, we know that there is a relationship *but we don't know why* there is a relationship. For example, if there is a high correlation between lower Employee Satisfaction Survey scores and attrition, then we know that employees who leave may tend to have lower Employee Satisfaction Survey scores, but we don't know specifically why the employees left. The reasons could vary widely and require further root cause investigation.
+
+We will apply a two-step process to find the drivers of Shadowrun's attrition. We will apply an initial first-pass methodology to determine which factors may be the most important. We will then apply a second-pass methodology to determine which levels within each factor are the most significant drivers of attrition. For example, our first pass may find that the Job Description is an important factor. Knowing that the employee's job is a factor in attrition is important, but it is not helpful unless we know which jobs have the greatest impact on attrition.
+
+The factor importance chart below show us the relative importance of all of the factors in our dataset. This first pass applies a random forest algorithm to compute the relative importance of each factor. Note that you will get different results depending on the algorithm or method you choose.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
@@ -412,8 +460,6 @@ driver_data_df <- attrition_data_df
 
 # Remove StandardHours and Over18 since there is no variation and remove Attrition since it is redundant
 driver_data_df <- driver_data_df[ , -c(10, 13, 29)]
-
-colnames(driver_data_df)[32] <- "terminated"
 
 model_driver_rf <- randomForest(terminated ~ ., data = driver_data_df[, -1])
 driver_imp_rf <- varImp(model_driver_rf)
@@ -426,7 +472,7 @@ renderPlot({
         variable_viz <- ggplot(driver_imp_rf, aes(x=reorder(driver, Overall), y = Overall)) +
                 geom_point() +
                 geom_segment(aes(x=driver,xend=driver,y=0,yend=Overall)) +
-                labs(title = "Variable importance", subtitle = "(generated by random forest model)", x = "", y = "mean decrease in Gini") +
+                labs(title = "Shadowrun attrition factor importance", subtitle = "(generated by random forest model)", x = "", y = "mean decrease in Gini") +
                 theme(panel.background = element_blank(),
                       panel.grid.major.x = element_line(color = "#dee2e8")) +
                 coord_flip()
@@ -437,7 +483,8 @@ renderPlot({
 
 ```
 
-Key drivers
+
+Now that we know the relative importance of each factor, the next step is to decide which factors to include in our model. The drop-down below allows you to select the Importance threshold for those factors you want to include in the model. After you choose your desired threshold, we apply the second-pass step of including the selected factors in a logistic regression model. The output table that you will see when you select your threshold includes the output from the model. The coefficient column tells us whether the relationship between that factor level and attrition is positive or negative and the degree to which they are related. Values at or near zero have very little influence on attrition. The p-value column tells us whether the relationship is significant. For purposes of our analysis we will use a significance level of 0.05 (p <= 0.5) but it is important to note that there are [debates in the scientific community](https://www.nature.com/articles/s41562-017-0189-z) swelling around the appropriate significance level to use. 
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
@@ -446,11 +493,13 @@ Key drivers
 numericInput(inputId = "gini_cutoff", label = "Choose the Gini cut-off point below which you want to exclude variables:",
             min = min(driver_imp_rf$Overall), max = max(driver_imp_rf$Overall), value = 15)
 
-renderTable({
+render_gt({
         
         options(scipen = 999)
         
         variables_chosen <- driver_imp_rf %>% filter(Overall >= input$gini_cutoff) %>% dplyr::select(driver)
+        
+        #variables_chosen <- driver_imp_rf %>% filter(Overall >= 1) %>% dplyr::select(driver)
         
         variables_chosen <- as.vector(variables_chosen$driver)
         
@@ -460,42 +509,63 @@ renderTable({
         
         model_driver_lr_df <- tidy(model_driver_lr)
         
-        model_driver_lr_df %>% gt()
+        model_driver_lr_df <- model_driver_lr_df %>%
+                dplyr::select(term, estimate, p.value) %>%
+                mutate(usefulness_category = ifelse(p.value > 0.05, "not significant (p-value > 0.05)",
+                                                    ifelse(p.value <= 0.05 & abs(estimate) > 0.1, "significant and meaningful (p-value <= 0.05 and coefficient > 0.1 or < -0.1)", 
+                                                    ifelse(p.value <= 0.05 & abs(estimate) <= 0.1, "significant but not meaningful (p-value <= 0.05 and coefficient between 0.1 and -0.1)", "unknown"))),
+                       usefulness_cat_num = ifelse(p.value > 0.05, -1,
+                                                    ifelse(p.value <= 0.05 & abs(estimate) > 0.1, 1, 
+                                                    ifelse(p.value <= 0.05 & abs(estimate) <= 0.1, 0, 0)))) %>%
+                arrange(desc(usefulness_cat_num), desc(estimate), term) %>%
+                mutate(estimate = round(estimate, 3),
+                       p.value = round(p.value, 4)) %>%
+                dplyr::select(-usefulness_cat_num)
+        
+        names(model_driver_lr_df) <- c("factor", "coefficient", "p.value", "usefulness_category")
+                
+        g_table <- model_driver_lr_df %>%
+                gt(groupname_col = "usefulness_category") %>%
+                tab_options(table.font.size = 10,
+                    row.padding = px(1)
+                    )
+        
+        g_table
         
 })
-
 
 ```
 
 
+# Retention Risk Scoring
+Now that we have analyzed which factors and factor levels are correlated with attrition and the direction and strength of that relationship, let's leverage that data to assist with decision-making and more focused analysis. We will develop a more fine-tuned model using machine learning techniques to predict which of our active employees may be at risk of leaving. The general process we follow to build a machine learning model is:
 
-# Machine Learning and Predictive Modeling
+  1. data collection;
+  2. data preparation;
+  3. building the model;
+  4. training the model;
+  5. evaluating model performance; and
+  6. improving model performance.
 
-### Data Collection
+### Data Collection and Preparation
+
+We have already completed a large portion of data collection and preparation for the previous analyses. A data collection and preparation and processing step that is unique to machine learning is to split data into "training" and "test" datasets. The training dataset is used to build the model and the test dataset is used to evaluate the accuracy and precision of the model. The split is usually a percentage split with the larger percentage being put in the training dataset and the smaller percentage put into the test dataset. Common splits are 70%/30% and 80%/20%. We will use an 80/20 split for our analysis.
+
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+# numericInput(inputId = "train_split", label = "Choose the percentage of data you would like to use for your training dataset:  ", value = .80, min = .01, max = 0.99, step = .05)
 
 modeling_data_df <- attrition_data_df
 
 # Remove StandardHours and Over18 since there is no variation and remove Attrition since it is redundant
 modeling_data_df <- modeling_data_df[ , -c(10, 13, 29)]
 
-colnames(modeling_data_df)[32] <- "terminated"
-
-```
-
-
-### Data Preparation
-
-Split the data into test and training datasets. The training dataset is used to build the model and the test dataset is used to evaluate the accuracy and precision of the model.
-
-```{r echo = FALSE, message=FALSE, warning=FALSE}
-
 set.seed(1)
 
 # Split the data into training and test set
-training_samples_df <- modeling_data_df$EmployeeNumber %>% 
-  createDataPartition(p = 0.8, list = FALSE)
+training_samples_df <- modeling_data_df$EmployeeNumber %>%
+        createDataPartition(p = 0.8, list = FALSE)  
 
 train_data_df  <- modeling_data_df[training_samples_df, ]
 test_data_df <- modeling_data_df[-training_samples_df, ]
@@ -503,10 +573,9 @@ test_data_df <- modeling_data_df[-training_samples_df, ]
 ```
 
 
+### Build and Train Models
 
-### Build and Train the Models - Naive Bayes, Decision Trees and Logistic Regression
-
-Naive Bayes classifier
+When building a machine learning model, it can be beneficial to try a few different algorithms and compare their performance. For purposes of this illustration, we will build models using the naive Bayes, logistic regression, decision tree and random forest algorithms. We will not discuss these algorithms in detail. A confusion matrix is an important tool in helping assess the performance of a model. Several metrics can be generated from a confusion matrix. These metrics help us decide whether the model or models will work for our purposes. Following are the confusion matrices for each of the models we created.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
@@ -556,7 +625,10 @@ perf_metrics_untrained_df <- perf_metrics_untrained_df[ , c(5, 2, 1, 3:4)]
 
 perf_metrics_untrained_df %>%
         gt() %>%
-        fmt_percent(c(2:5), decimals = 1)
+        fmt_percent(c(2:5), decimals = 1) %>%
+        tab_options(table.font.size = 10,
+                    row.padding = px(1)
+                    )
 
 ```
 
@@ -609,7 +681,10 @@ perf_metrics_trained_df <- perf_metrics_trained_df[ , c(5, 2, 1, 3:4)]
 
 perf_metrics_trained_df %>%
         gt() %>%
-        fmt_percent(c(2:5), decimals = 1)
+        fmt_percent(c(2:5), decimals = 1) %>%
+        tab_options(table.font.size = 10,
+                    row.padding = px(1)
+                    )
 
 ```
 
@@ -668,7 +743,12 @@ Following are the online articles and resources I used in compiling this analysi
     * https://www.r-bloggers.com/feature-selection-using-the-caret-package/
     * http://dataaspirant.com/2018/01/15/feature-selection-techniques-r/
     * https://www.r-bloggers.com/variable-importance-plot-and-variable-selection/
-  * **Machine Learning/Predictive Modeling >>** *Machine Learning with R*, (2013) by Brett Lantz 
+    * https://www.datacamp.com/community/tutorials/feature-selection-R-boruta
+    * https://freakonometrics.hypotheses.org/19835
+    * https://blog.datadive.net/selecting-good-features-part-iii-random-forests/
+  * **Machine Learning/Predictive Modeling >>**
+      *Machine Learning with R*, (2013) by Brett Lantz
+      * https://towardsdatascience.com/train-validation-and-test-sets-72cb40cba9e7
     * **Naive Bayes >> ** 
       * https://www.r-bloggers.com/understanding-naive-bayes-classifier-using-r/
       * *Naive Bayes Classifier Essentials >>* http://www.sthda.com/english/articles/36-classification-methods-essentials/145-naive-bayes-classifier-essentials/
