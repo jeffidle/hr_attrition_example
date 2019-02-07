@@ -102,21 +102,114 @@ col_count <- ncol(attrition_df)
 colnames(attrition_df)[col_count] <- "WorkLifeBalanceText"
 
 attrition_df <- attrition_df %>%
-        mutate(censor = ifelse(Attrition == "Yes", 1, 0))
+        mutate(terminated = ifelse(Attrition == "Yes", 1, 0))
 
 attrition_df <- as.data.frame(unclass(attrition_df))
 
 attrition_data_df <- attrition_df[ , c(16:42, 8:14, 43)]
-attrition_data_df$censor <- factor(attrition_data_df$censor)
+attrition_data_df$terminated <- factor(attrition_data_df$terminated)
 attrition_df$Attrition <- factor(attrition_df$Attrition, levels = c("Yes", "No"))
 
 ```
 
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+options(scipen = 999)
+
+data_summary_df <- data.frame(
+        
+        data_element = names(attrition_df),
+        data_type = unlist(lapply(attrition_df, class))
+        
+)
+
+numeric_cols_df <- attrition_df %>% select_if(is.numeric)
+integer_cols_df <- attrition_df %>% select_if(is.integer)
+num_int_cols_df <- bind_cols(numeric_cols_df, integer_cols_df)
+factor_cols_df <- attrition_df %>% select_if(is.factor)
+character_cols_df <- attrition_df %>% select_if(is.character)
+
+data_levels <- lapply(factor_cols_df, levels)
+
+min_vals <- lapply(num_int_cols_df, min)
+mean_vals <- lapply(num_int_cols_df, mean)
+max_vals <- lapply(num_int_cols_df, max)
+col_count <- length(data_levels)
+col_count2 <- length(min_vals)
+
+for(i in 1:col_count){
+        
+        tmp_level_df <- data.frame(
+                
+                data_element = names(data_levels[i]),
+                data_level_count = paste0(length(data_levels[[i]]), collapse = ""),
+                data_level_text = paste0(data_levels[[i]], collapse = ", ")
+                
+        )
+        
+        if(!exists("level_df")){
+                
+               level_df <- tmp_level_df 
+                
+        } else level_df <- bind_rows(level_df, tmp_level_df)
+        
+}
+
+level_df <- level_df %>% mutate(data_summary = paste0("level count = ", data_level_count, "; levels = ", data_level_text))
+
+for(i in 1:col_count2){
+        
+        tmp_numsum_df <- data.frame(
+                
+                data_element = names(min_vals[i]),
+                min_value = min_vals[[i]],
+                mean_value = mean_vals[[i]],
+                max_value = max_vals[[i]]
+                
+        )
+        
+        if(!exists("numsum_df")){
+                
+               numsum_df <- tmp_numsum_df 
+                
+        } else numsum_df <- bind_rows(numsum_df, tmp_numsum_df)
+        
+}
+
+numsum_df <- numsum_df %>% mutate(data_summary = paste0("min = ", min_value, "; mean = ", round(mean_value, 3), "; max = ", max_value))
+
+col_summaries_df <- bind_rows(level_df[ , c(1, 4)], numsum_df[ , c(1, 5)])
+
+data_summary_df <- merge(data_summary_df, col_summaries_df, by = "data_element", all.x = TRUE, all.y = FALSE)
+
+data_summary_df <- data_summary_df %>%
+        arrange(data_type, data_element)
+
+#rm(tmp_numsum_df, numsum_df, tmp_level_df, level_df, data_levels, data_summary_df)
+
+```
+
+
+
 
 #### Exploratory analysis
-The starting point for every analysis is to become familiar with the data. You can view the raw data [here](https://github.com/jeffidle/hr_attrition_example/blob/master/data/ibm_attrition.csv). We would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
+The starting point for every analysis is to become familiar with the data. You can view the raw data [here](https://github.com/jeffidle/hr_attrition_example/blob/master/data/ibm_attrition.csv) but let's take a look at a summarized view of the data. 
 
-```{r echo = FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+data_summary_df %>% gt() %>%
+        tab_options(table.font.size = 10,
+                    row.padding = px(1)
+                    )
+
+```
+
+
+
+
+Now, let's visualize the data. We would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 term_dist_viz <- ggplot(attrition_df, aes(x = Attrition, fill = Attrition)) +
         geom_bar() +
@@ -203,7 +296,7 @@ The chart on the right shows the average reduction in retention probability for 
 
 ```{r echo = FALSE}
 
-surv_object <- Surv(time = attrition_df$YearsAtCompany, event = attrition_df$censor)
+surv_object <- Surv(time = attrition_df$YearsAtCompany, event = attrition_df$terminated)
 
 fit1 <- survfit(surv_object ~ 1, data = attrition_df)
 
@@ -249,9 +342,6 @@ renderPlot({
 Overall, we don't have major concerns about retention risk by tenure, but we should investigate the spikes in years 1 and 10. We would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What we don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
 
 ```{r echo = FALSE}
-
-attrition_df <- attrition_df %>%
-        mutate(censor = ifelse(Attrition == "Yes", 1, 0))
 
 selectInput(inputId = "survival_slice", label = "Choose the dimension by which you'd like to slice the retention analysis:", 
   choices = c("Gender", "Department", "Education", "Education Field", "Business Travel", "Overtime", "Stock Options Level",
@@ -552,7 +642,7 @@ varImp(model_test_rt_df)
 
 model_input_data_df <- attrition_data_df[ , c(2:9, 11:28, 30:35)]
 
-fit_rf <- randomForest(censor ~ ., data = model_input_data_df)
+fit_rf <- randomForest(terminated ~ ., data = model_input_data_df)
 
 # Create an importance based on mean decreasing gini
 gini_df <- as.data.frame(importance(fit_rf))
