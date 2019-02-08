@@ -61,6 +61,7 @@ library(klaR)
 library(rpart)
 library(gt)
 library(survey)
+library(pscl)
 
 ```
 
@@ -884,11 +885,11 @@ We will performance-tune the logistic regression model because it:
 
   1. is commonly used in HR analytics;
   2. has the best balance between recall and sensitivity versus the other models;
-  3. it has the highest balanced accuracy;
-  4. it has one of the lowest accuracy p-values; and
-  5. it gives us more information about the levels within our factor variables than the other models.
+  3. has the highest balanced accuracy;
+  4. has one of the lowest accuracy p-values; and
+  5. gives us more information about the levels within our factor variables than the other models.
 
-All of the original models we built and trained used all of the features in our dataset. We know that some of the features are not significant and some of the features could have multi-collinearity (they could be measuring the same or similar things). Therefore, our performance tuning will involve feature selection. We will be assessing "goodness-of-fit" measures to try to determine whether we have the optimal number of features. We will also different approaches to training the model. 
+All of the original models we built and trained used all of the features in our dataset. We know that some of the features are not significant and some of the features could have multi-colinearity (they could be measuring the same or similar things). Therefore, our performance tuning will involve feature selection. We will be assessing "goodness-of-fit" measures to try to determine whether we have the optimal number of features. We will also different approaches to training the model. 
 
 Finally, we will set cost consequences, which help our models understand whether certain incorrect predictions are more costly than other incorrect predictions. Imagine that we are applying our model to our currently active employee population to find areas of retentionn risk. If we incorrectly predict that an active employee is going to leave when they in fact are not a retention risk, then perhaps we've spent time and resources to retain someone whom we were not going to lose. But the more expensive incorrect prediction is when an employee is a retention risk and we did not predict them as such. The employee will leave the company and we missed the opportunity to retain her or him--not to mention incurred the costs associated with that employee's turnover. We can set up a cost structure for correct and incorrect predictions such that the model will try to optimize predictions for the highest-cost area, which is to correctly identify employees at risk for our project.
 
@@ -934,19 +935,101 @@ feature_select_df <- feature_select_df %>%
         mutate(importance = round(MeanDecreaseGini, 1)) %>%
         dplyr::select(factor, importance)
 
+feature_select_df <- merge(x = feature_select_df, y = factor_sig_df, by = "factor", all.x = TRUE, all.y = TRUE)
+
+feature_select_df <- feature_select_df %>%
+        mutate(significant = ifelse(p.value <= 0.05, "significant (p-value <= 0.05)", "not significant (p-value > 0.05)")) %>%
+        arrange(desc(significant), desc(importance), p.value)
+
 feature_select_df %>%
-        gt() %>%
+        gt(group = "significant") %>%
+        fmt_percent(3, decimals = 1) %>%
         tab_options(table.font.size = 12,
                     row.padding = px(1)
                     )
 
 ```
+<br>
+<br>
+Let's toss out the factors that are not significant (p-value > 0.05). That leaves us with 20 factors. That's still a lot of variables to include in our model, but they could all add value. Let's take a look at the goodness-of-fit measures for all importance threshold cutoff points. The goodness-of-fit measures we will analyze are:  1) likelihood ratio test; 2) pseudo R-squared; and 3) the Hosmer-Lemeshow Test.
 
-Now let's take a look at the goodness-of-fit measures for all importance threshold cutoff points. The goodness-of-fit measures we will analyze are:  1) likelihood ratio test; 2) pseudo R-squared; and 3) the Hosmer-Lemeshow Test.
+Likelihood ratio discussion
+
+Pseudo R squared discussion
+
+Hosmer-Lemeshow Test discussion
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
+features_selected1_df <- feature_select_df %>%
+        filter(significant == "significant (p-value <= 0.05)") %>%
+        dplyr::select(-significant)
 
+feature_list <- unique(features_selected1_df$factor)
+
+# Likelihood ratio test
+
+iter_count <- length(feature_list) - 1
+
+for(i in 1:iter_count){
+        
+        j <- i+1
+        
+        mod1_factors <- feature_list[1:i]
+        mod2_factors <- feature_list[1:j]
+        
+        mod1_df <- modeling_data_improve_df %>% dplyr::select(Attrition, mod1_factors)
+        mod2_df <- modeling_data_improve_df %>% dplyr::select(Attrition, mod2_factors)
+        
+        model1_less <- glm(Attrition ~ ., data = mod1_df, family="binomial")
+        model2_more <- glm(Attrition ~ ., data = mod2_df, family="binomial")
+        
+        likelihood_ratio <- anova(model1_less, model2_more, test ="Chisq")
+        
+        tmp_likelihood_df <- data.frame(
+                model1_attributes = paste0(mod1_factors, collapse = ", "),
+                model2_attributes = paste0(mod2_factors, collapse = ", "),
+                deviance = likelihood_ratio[2, 4],
+                p.value = likelihood_ratio[2, 5]
+        )
+        
+        if(!exists("likelihood_df")){
+                
+               likelihood_df <- tmp_likelihood_df 
+                
+        } else likelihood_df <- bind_rows(likelihood_df, tmp_likelihood_df)
+        
+}
+
+model_count <- length(feature_list)
+
+for(i in 1:model_count){
+        
+        mod_factors <- feature_list[1:i]
+        
+        mod_df <- modeling_data_improve_df %>% dplyr::select(Attrition, mod_factors)
+        
+        model_iter <- glm(Attrition ~ ., data = mod_df, family="binomial")
+        
+        mod_output <- pR2(model_iter)
+        
+        tmp_pseudo_r_df <- data.frame(
+                model_attributes = paste0(mod_factors, collapse = ", "),
+                attribute_count = length(mod_factors),
+                mcfadden_r = mod_output[4]
+        )
+        
+        if(!exists("pseudo_r_df")){
+                
+               pseudo_r_df <- tmp_pseudo_r_df 
+                
+        } else pseudo_r_df <- bind_rows(pseudo_r_df, tmp_pseudo_r_df)
+        
+}
+
+ggplot(pseudo_r_df, aes(x = attribute_count, y = mcfadden_r)) +
+        geom_line() +
+        theme_minimal()
 
 ```
 
@@ -986,7 +1069,7 @@ Following are the online articles and resources I used in compiling this analysi
     * **Cross-validation >>** 
   * **Online tools >>** 
     * https://www.google.com/search?q=color+picker
-  * **Technical troubleshooting >>** https://stackoverflow.com/
+  * **Technical >>** https://stackoverflow.com/
     * https://stackoverflow.com/questions/8499361/easy-way-of-counting-precision-recall-and-f1-score-in-r
     * **gtable >>** 
       * https://github.com/rstudio/gt/blob/master/README.md
