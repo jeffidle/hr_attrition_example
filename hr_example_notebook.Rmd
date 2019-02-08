@@ -235,16 +235,14 @@ data_summary_df %>% gt() %>%
                     )
 
 ```
-
-
-
-
-Now, let's visualize the data. We would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
+<br>
+<br>
+Let's visualize the data. We would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 term_dist_viz <- ggplot(attrition_df, aes(x = Attrition, fill = Attrition)) +
-        geom_bar() +
+        geom_bar(width = 0.5) +
         geom_text(stat = "count", aes(label = ..count..), hjust = -0.5) +
         scale_fill_manual(values = c("#ED8800", "#5378b5")) +
         labs(title = "Employee count by attrition category", subtitle = "(no = currently active; yes = terminated)", x = "", y = "") +
@@ -262,9 +260,9 @@ renderPlot({
 })
 
 ```
-
-
-The drop-down box below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
+<br>
+<br>
+The drop-down below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
 
 ```{r echo = FALSE}
 
@@ -293,7 +291,7 @@ dim1_select <- reactive({
 renderPlot({
         
         explore_dist_viz <- ggplot(attrition_df, aes(x = dim1_select())) +
-                geom_bar(fill = "#8f8f8f") +
+                geom_bar(fill = "#8f8f8f", width = 0.5) +
                 geom_text(stat = "count", aes(label = ..count..), hjust = 1.5, color = "#ffffff") +
                 labs(title = paste0("Employee count distribution"), x = "", y = "") +
                 coord_flip() +
@@ -306,7 +304,7 @@ renderPlot({
                       legend.position = "none")
         
         explore2_dist_viz <- ggplot(attrition_df, aes(x = dim1_select(), y = EmployeeCount, fill = Attrition)) +
-                geom_bar(position = "fill", stat = "identity") +
+                geom_bar(position = "fill", stat = "identity", width = 0.5) +
                 labs(title = paste0("Active versus terminated distribution"), x = "", y = "") +
                 scale_fill_manual(values = c("#ED8800", "#5378b5")) +
                 scale_y_continuous(label = percent_format()) +
@@ -373,9 +371,8 @@ renderPlot({
 })
 
 ```
-
-
-
+<br>
+<br>
 Overall, we don't have major concerns about retention risk by tenure, but we should investigate the spikes in years 1 and 10. We would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What we don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
 
 ```{r echo = FALSE}
@@ -483,8 +480,8 @@ renderPlot({
         })
 
 ```
-
-
+<br>
+<br>
 Now that we know the relative importance of each factor, the next step is to decide which factors to include in our model. The drop-down below allows you to select the Importance threshold for those factors you want to include in the model. After you choose your desired threshold, we apply the second-pass step of including the selected factors in a logistic regression model. The output table that you will see when you select your threshold includes the output from the model. The coefficient column tells us whether the relationship between that factor level and attrition is positive or negative and the degree to which they are related. Values at or near zero have very little influence on attrition. The p-value column tells us whether the relationship is significant. For purposes of our analysis we will use a significance level of 0.05 (p <= 0.5) but it is important to note that there are [debates in the scientific community](https://www.nature.com/articles/s41562-017-0189-z) swelling around the appropriate significance level to use. 
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
@@ -603,60 +600,60 @@ predictions_rf <- model_rf %>% predict(test_data_df)
 predictions_rt <- model_rt %>% predict(test_data_df, type = "class")
 
 # Model accuracies
-model_build_accuracy_nb <- mean(predictions_nb$class == test_data_df$Attrition)
-model_build_accuracy_lr <- mean(predictions_lr == test_data_df$Attrition)
-model_build_accuracy_rf <- mean(predictions_rf == test_data_df$Attrition)
-model_build_accuracy_rt <- mean(predictions_rt == test_data_df$Attrition)
+model_et_accuracy_nb <- mean(predictions_nb$class == test_data_df$Attrition)
+model_et_accuracy_lr <- mean(predictions_lr == test_data_df$Attrition)
+model_et_accuracy_rf <- mean(predictions_rf == test_data_df$Attrition)
+model_et_accuracy_rt <- mean(predictions_rt == test_data_df$Attrition)
 
 # Confusion matrices
-model_build_cm_nb <- confusionMatrix(predictions_nb$class, test_data_df$Attrition)
-model_build_cm_lr <- confusionMatrix(predictions_lr, test_data_df$Attrition)
-model_build_cm_rf <- confusionMatrix(predictions_rf, test_data_df$Attrition)
-model_build_cm_rt <- confusionMatrix(predictions_rt, test_data_df$Attrition)
+model_et_cm_nb <- confusionMatrix(predictions_nb$class, test_data_df$Attrition)
+model_et_cm_lr <- confusionMatrix(predictions_lr, test_data_df$Attrition)
+model_et_cm_rf <- confusionMatrix(predictions_rf, test_data_df$Attrition)
+model_et_cm_rt <- confusionMatrix(predictions_rt, test_data_df$Attrition)
 
-cm_nb_ut <- data.frame(as.matrix(model_build_cm_nb$table)) %>%
+cm_nb_ut <- data.frame(as.matrix(model_et_cm_nb$table)) %>%
         mutate(pct = Freq / sum(Freq, na.rm = TRUE),
                outcome = ifelse(Reference == Prediction, "correct", ifelse(Reference == "active" & Prediction == "termed", "false negative", ifelse(Reference == "termed" & Prediction == "active", "false positive", "unknown"))),
                algorithm = "naive_bayes")
 
-cm_lr_ut <- data.frame(as.matrix(model_build_cm_lr$table)) %>%
+cm_lr_ut <- data.frame(as.matrix(model_et_cm_lr$table)) %>%
         mutate(pct = Freq / sum(Freq, na.rm = TRUE),
                outcome = ifelse(Reference == Prediction, "correct", ifelse(Reference == "active" & Prediction == "termed", "false negative", ifelse(Reference == "termed" & Prediction == "active", "false positive", "unknown"))),
                algorithm = "logistic_regression")
 
-cm_rf_ut <- data.frame(as.matrix(model_build_cm_rf$table)) %>%
+cm_rf_ut <- data.frame(as.matrix(model_et_cm_rf$table)) %>%
         mutate(pct = Freq / sum(Freq, na.rm = TRUE),
                outcome = ifelse(Reference == Prediction, "correct", ifelse(Reference == "active" & Prediction == "termed", "false negative", ifelse(Reference == "termed" & Prediction == "active", "false positive", "unknown"))),
                algorithm = "random_forest")
 
-cm_rt_ut <- data.frame(as.matrix(model_build_cm_rt$table)) %>%
+cm_rt_ut <- data.frame(as.matrix(model_et_cm_rt$table)) %>%
         mutate(pct = Freq / sum(Freq, na.rm = TRUE),
                outcome = ifelse(Reference == Prediction, "correct", ifelse(Reference == "active" & Prediction == "termed", "false negative", ifelse(Reference == "termed" & Prediction == "active", "false positive", "unknown"))),
                algorithm = "regression_tree")
 
-confusion_matrix_untrained <- bind_rows(cm_nb_ut, cm_lr_ut, cm_rf_ut, cm_rt_ut)
-names(confusion_matrix_untrained) <- c("predicted", "actual", "n_ut", "pct_ut", "outcome", "algorithm")
+confusion_matrix_et <- bind_rows(cm_nb_ut, cm_lr_ut, cm_rf_ut, cm_rt_ut)
+names(confusion_matrix_et) <- c("predicted", "actual", "n_ut", "pct_ut", "outcome", "algorithm")
 
 names(cm_lr_ut) <- c("predicted", "actual", "n_lr", "pct_lr", "outcome", "algorithm")
 names(cm_nb_ut) <- c("predicted", "actual", "n_nb", "pct_nb", "outcome", "algorithm")
 names(cm_rf_ut) <- c("predicted", "actual", "n_rf", "pct_rf", "outcome", "algorithm")
 names(cm_rt_ut) <- c("predicted", "actual", "n_rt", "pct_rt", "outcome", "algorithm")
 
-confusion_matrix_untrained_w <- merge(x = cm_lr_ut[ , c(1:5)], y = cm_nb_ut[ , c(1:5)], by = c("actual", "predicted", "outcome"), all.x = TRUE, all.y = TRUE)
-confusion_matrix_untrained_w <- merge(x = confusion_matrix_untrained_w, y = cm_rf_ut[ , c(1:5)], by = c("actual", "predicted", "outcome"), all.x = TRUE, all.y = TRUE)
-confusion_matrix_untrained_w <- merge(x = confusion_matrix_untrained_w, y = cm_rt_ut[ , c(1:5)], by = c("actual", "predicted", "outcome"), all.x = TRUE, all.y = TRUE)
+confusion_matrix_et_w <- merge(x = cm_lr_ut[ , c(1:5)], y = cm_nb_ut[ , c(1:5)], by = c("actual", "predicted", "outcome"), all.x = TRUE, all.y = TRUE)
+confusion_matrix_et_w <- merge(x = confusion_matrix_et_w, y = cm_rf_ut[ , c(1:5)], by = c("actual", "predicted", "outcome"), all.x = TRUE, all.y = TRUE)
+confusion_matrix_et_w <- merge(x = confusion_matrix_et_w, y = cm_rt_ut[ , c(1:5)], by = c("actual", "predicted", "outcome"), all.x = TRUE, all.y = TRUE)
 
-confusion_matrix_untrained_w <- confusion_matrix_untrained_w %>%
+confusion_matrix_et_w <- confusion_matrix_et_w %>%
         arrange(outcome, actual, predicted)
 
 
-names(confusion_matrix_untrained) <- c("predicted", "actual", "n_ut", "pct_ut", "outcome", "algorithm")
+names(confusion_matrix_et) <- c("predicted", "actual", "n_ut", "pct_ut", "outcome", "algorithm")
 
-confusion_matrix_untrained <- confusion_matrix_untrained %>%
+confusion_matrix_et <- confusion_matrix_et %>%
         dplyr::select(actual, predicted, outcome, n_ut, pct_ut, algorithm) %>%
         arrange(algorithm, outcome, actual, predicted)
 
-confusion_matrix_untrained_w %>%
+confusion_matrix_et_w %>%
         gt() %>%
         tab_spanner(label = md("*Logistic Regression*"), columns = vars(n_lr, pct_lr)) %>%
         tab_spanner(label = md("*Naive Bayes*"), columns = vars(n_nb, pct_nb)) %>%
@@ -671,56 +668,57 @@ confusion_matrix_untrained_w %>%
                     row.padding = px(1)
                     )
 
-confusion_matrix_untrained$phase <- "untrained"
+confusion_matrix_et$phase <- "eighty_twenty"
 
 ```
-
-
+<br>
+<br>
 Following are the metrics derived from the confusion matrices. Different metrics will have different levels of importance depending on the business problem at hand. 
+<br>
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 # Model performance metrics
 # F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
 
-metric_labels <- row.names(as.data.frame(c(model_build_cm_nb$overall, model_build_cm_nb$byClass)))
+metric_labels <- row.names(as.data.frame(c(model_et_cm_nb$overall, model_et_cm_nb$byClass)))
 
-perf_metrics_nb_untrained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_build_cm_nb$overall, model_build_cm_nb$byClass)) %>%
+perf_metrics_nb_et <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_et_cm_nb$overall, model_et_cm_nb$byClass)) %>%
         mutate(algorithm = "naive_bayes",
-               phase = "untrained")
+               phase = "eighty_twenty")
 
-perf_metrics_lr_untrained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_build_cm_lr$overall, model_build_cm_lr$byClass)) %>%
+perf_metrics_lr_et <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_et_cm_lr$overall, model_et_cm_lr$byClass)) %>%
         mutate(algorithm = "logistic_regression",
-               phase = "untrained")
+               phase = "eighty_twenty")
 
-perf_metrics_rf_untrained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_build_cm_rf$overall, model_build_cm_rf$byClass)) %>%
+perf_metrics_rf_et <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_et_cm_rf$overall, model_et_cm_rf$byClass)) %>%
         mutate(algorithm = "random_forest",
-               phase = "untrained")
+               phase = "eighty_twenty")
 
-perf_metrics_rt_untrained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_build_cm_rt$overall, model_build_cm_rt$byClass)) %>%
+perf_metrics_rt_et <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_et_cm_rt$overall, model_et_cm_rt$byClass)) %>%
         mutate(algorithm = "regression_tree",
-               phase = "untrained")
+               phase = "eighty_twenty")
 
-perf_metrics_untrained_df <- bind_rows(perf_metrics_nb_untrained, perf_metrics_lr_untrained, perf_metrics_rf_untrained,
-                                       perf_metrics_rt_untrained)
+perf_metrics_et_df <- bind_rows(perf_metrics_nb_et, perf_metrics_lr_et, perf_metrics_rf_et,
+                                       perf_metrics_rt_et)
 
-names(perf_metrics_lr_untrained) <- c("metric", "metric_result_lr", "algorithm", "phase")
-names(perf_metrics_nb_untrained) <- c("metric", "metric_result_nb", "algorithm", "phase")
-names(perf_metrics_rf_untrained) <- c("metric", "metric_result_rf", "algorithm", "phase")
-names(perf_metrics_rt_untrained) <- c("metric", "metric_result_rt", "algorithm", "phase")
+names(perf_metrics_lr_et) <- c("metric", "metric_result_lr", "algorithm", "phase")
+names(perf_metrics_nb_et) <- c("metric", "metric_result_nb", "algorithm", "phase")
+names(perf_metrics_rf_et) <- c("metric", "metric_result_rf", "algorithm", "phase")
+names(perf_metrics_rt_et) <- c("metric", "metric_result_rt", "algorithm", "phase")
 
-perf_metrics_untrained_w_df <- merge(x = perf_metrics_lr_untrained[ , c(1:2)], y = perf_metrics_nb_untrained[ , c(1:2)],
+perf_metrics_et_w_df <- merge(x = perf_metrics_lr_et[ , c(1:2)], y = perf_metrics_nb_et[ , c(1:2)],
                                      by = "metric", all.x = TRUE, all.y = TRUE)
-perf_metrics_untrained_w_df <- merge(x = perf_metrics_untrained_w_df, y = perf_metrics_rf_untrained[ , c(1:2)],
+perf_metrics_et_w_df <- merge(x = perf_metrics_et_w_df, y = perf_metrics_rf_et[ , c(1:2)],
                                      by = "metric", all.x = TRUE, all.y = TRUE)
-perf_metrics_untrained_w_df <- merge(x = perf_metrics_untrained_w_df, y = perf_metrics_rt_untrained[ , c(1:2)],
+perf_metrics_et_w_df <- merge(x = perf_metrics_et_w_df, y = perf_metrics_rt_et[ , c(1:2)],
                                      by = "metric", all.x = TRUE, all.y = TRUE)
 
-perf_metrics_untrained_w_df %>%
+perf_metrics_et_w_df %>%
         gt() %>%
         cols_label(metric_result_lr = "logistic regression",
                    metric_result_nb = "naive Bayes",
@@ -732,55 +730,56 @@ perf_metrics_untrained_w_df %>%
                     )
 
 ```
-
+  
 
 
 ### Evaluate Model Performance
-
+First we built our model using 80% of the data available to us. This initial 80% dataset was our training dataset. We evaluated our initial model performance by applying it to the remaining 20% of our data (test data) and comparing its predicted Attrition with actual Attrition. This training and evaluation approach has some limitations because we are only using 80% of the data available to us to build the model and tested against a relatively small amount of data. We tested a second approach to building the models called cross-validation. This method ... 
 
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 set.seed(1)
 
-# Build the models
-model_test_nb_df <- train(Attrition ~ ., data = train_data_df[, -1], method = "nb",
+# Build the models >> note that we use the full dataset (not the 80/20 split) because we are
+# using the cross-validation method
+model_cv_nb_df <- train(Attrition ~ ., data = modeling_data_df[, -1], method = "nb",
                           trControl = trainControl("cv", number = 10))
-model_test_lr_df <- train(Attrition ~ ., data = train_data_df[, -1], method = "glm", family = "binomial",
+model_cv_lr_df <- train(Attrition ~ ., data = modeling_data_df[, -1], method = "glm", family = "binomial",
                           trControl = trainControl("cv", number = 10))
-model_test_rf_df <- train(Attrition ~ ., data = train_data_df[, -1], method = "rf",
+model_cv_rf_df <- train(Attrition ~ ., data = modeling_data_df[, -1], method = "rf",
                           trControl = trainControl("cv", number = 10))
-model_test_rt_df <- train(Attrition ~ ., data = train_data_df[, -1], method = "rpart",
+model_cv_rt_df <- train(Attrition ~ ., data = modeling_data_df[, -1], method = "rpart",
                           trControl = trainControl("cv", number = 10))
 
 # Make predictions
-predicted_classes_nb <- model_test_nb_df %>% predict(test_data_df)
-predicted_classes_lr <- model_test_lr_df %>% predict(test_data_df)
-predicted_classes_rf <- model_test_rf_df %>% predict(test_data_df)
-predicted_classes_rt <- model_test_rt_df %>% predict(test_data_df)
+predicted_classes_nb <- model_cv_nb_df %>% predict(modeling_data_df)
+predicted_classes_lr <- model_cv_lr_df %>% predict(modeling_data_df)
+predicted_classes_rf <- model_cv_rf_df %>% predict(modeling_data_df)
+predicted_classes_rt <- model_cv_rt_df %>% predict(modeling_data_df)
 
 # Calculate the confusion matrices
-model_trained_cm_nb <- confusionMatrix(predicted_classes_nb, test_data_df$Attrition)
-model_trained_cm_lr <- confusionMatrix(predicted_classes_lr, test_data_df$Attrition)
-model_trained_cm_rf <- confusionMatrix(predicted_classes_rf, test_data_df$Attrition)
-model_trained_cm_rt <- confusionMatrix(predicted_classes_rt, test_data_df$Attrition)
+model_cv_cm_nb <- confusionMatrix(predicted_classes_nb, modeling_data_df$Attrition)
+model_cv_cm_lr <- confusionMatrix(predicted_classes_lr, modeling_data_df$Attrition)
+model_cv_cm_rf <- confusionMatrix(predicted_classes_rf, modeling_data_df$Attrition)
+model_cv_cm_rt <- confusionMatrix(predicted_classes_rt, modeling_data_df$Attrition)
 
-cm_nb_t <- data.frame(as.matrix(model_trained_cm_nb$table)) %>%
+cm_nb_t <- data.frame(as.matrix(model_cv_cm_nb$table)) %>%
         mutate(algorithm = "naive_bayes")
 
-cm_lr_t <- data.frame(as.matrix(model_trained_cm_lr$table)) %>%
+cm_lr_t <- data.frame(as.matrix(model_cv_cm_lr$table)) %>%
         mutate(algorithm = "logistic_regression")
 
-cm_rf_t <- data.frame(as.matrix(model_trained_cm_rf$table)) %>%
+cm_rf_t <- data.frame(as.matrix(model_cv_cm_rf$table)) %>%
         mutate(algorithm = "random_forest")
 
-cm_rt_t <- data.frame(as.matrix(model_trained_cm_rt$table)) %>%
+cm_rt_t <- data.frame(as.matrix(model_cv_cm_rt$table)) %>%
         mutate(algorithm = "regression_tree")
 
-confusion_matrix_trained <- bind_rows(cm_nb_t, cm_lr_t, cm_rf_t, cm_rt_t)
-names(confusion_matrix_trained) <- c("predicted", "actual", "n_tr", "algorithm")
+confusion_matrix_cv <- bind_rows(cm_nb_t, cm_lr_t, cm_rf_t, cm_rt_t)
+names(confusion_matrix_cv) <- c("predicted", "actual", "n_tr", "algorithm")
 
-confusion_matrix_trained <- confusion_matrix_trained %>%
+confusion_matrix_cv <- confusion_matrix_cv %>%
         group_by(algorithm) %>%
         mutate(pct_tr = n_tr / sum(n_tr, na.rm = TRUE)) %>%
         ungroup(algorithm) %>%
@@ -788,17 +787,17 @@ confusion_matrix_trained <- confusion_matrix_trained %>%
         dplyr::select(actual, predicted, outcome, n_tr, pct_tr, algorithm) %>%
         arrange(algorithm, outcome, actual, predicted)
 
-confusion_matrix_trained$phase <- "trained"
+confusion_matrix_cv$phase <- "cross_validation"
 
-confusion_matrix_combo <- merge(x = confusion_matrix_untrained[, c(1:6)], y = confusion_matrix_trained[, c(1:6)], by = c("actual", "predicted", "outcome", "algorithm"), all.x = TRUE, all.y = TRUE)
+confusion_matrix_combo <- merge(x = confusion_matrix_et[, c(1:6)], y = confusion_matrix_cv[, c(1:6)], by = c("actual", "predicted", "outcome", "algorithm"), all.x = TRUE, all.y = TRUE)
 
 confusion_matrix_combo <- confusion_matrix_combo %>%
         arrange(algorithm, outcome, actual, predicted)
 
 confusion_matrix_combo %>%
         gt(group = "algorithm") %>%
-        tab_spanner(label = md("*Untrained*"), columns = vars(n_ut, pct_ut)) %>%
-        tab_spanner(label = md("*Trained*"), columns = vars(n_tr, pct_tr)) %>%
+        tab_spanner(label = md("*80/20*"), columns = vars(n_ut, pct_ut)) %>%
+        tab_spanner(label = md("*Cross Validation*"), columns = vars(n_tr, pct_tr)) %>%
         cols_label(n_ut = "n", pct_ut = "%", n_tr = "n", pct_tr = "%") %>%
         fmt_percent(c(5, 7), decimals = 1) %>%
         tab_options(table.font.size = 12,
@@ -806,53 +805,57 @@ confusion_matrix_combo %>%
                     )
 
 ```
+<br>  
+Two key insights jump out from comparing the 80/20 to the cross-validated models:  1) Balanced Accuracy dropped significantly for naive Bayes; and 2) random forest perfectly predicted all outcomes. 
 
+The Balanced Accuracy for the naive Bayes model has gone from 76% with the 80/20 approach to 50% with the cross-validation approach. That's because the cross-validation approach predicted that all employees would remain active--as we saw above. Later on in the model performance improvement section we will assign costs to certain error types that will adjust the model to take a more balanced approach.
 
-Notice that XXXX has gone to 0 for the naive Bayes model. That is because it predicted that all employees would remain active--as we saw above.
+The cross-validated random forest perfectly predicted the outcomes--shouldn't we just use that model? No. This simply means that the random forest found a way to perfectly learn our data and is over-fitted to the data it learned. The model would likely not perform well on data from which it had not learned. Rather than doing a cross-validation on the entire dataset, we should probably cross-validate on an 80% sample and test the model against the remaining 20%. That would give us a better understanding of how the model would perform on data it hasn't seen before.
+
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 # Model performance metrics
 # F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
 
-metric_labels <- row.names(as.data.frame(c(model_trained_cm_nb$overall, model_trained_cm_nb$byClass)))
+metric_labels <- row.names(as.data.frame(c(model_cv_cm_nb$overall, model_cv_cm_nb$byClass)))
 
-perf_metrics_nb_trained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_trained_cm_nb$overall, model_trained_cm_nb$byClass)) %>%
+perf_metrics_nb_cv <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_cv_cm_nb$overall, model_cv_cm_nb$byClass)) %>%
         mutate(algorithm = "naive_bayes",
-               phase = "trained")
+               phase = "cross_validation")
 
-perf_metrics_lr_trained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_trained_cm_lr$overall, model_trained_cm_lr$byClass)) %>%
+perf_metrics_lr_cv <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_cv_cm_lr$overall, model_cv_cm_lr$byClass)) %>%
         mutate(algorithm = "logistic_regression",
-               phase = "trained")
+               phase = "cross_validation")
 
-perf_metrics_rf_trained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_trained_cm_rf$overall, model_trained_cm_rf$byClass)) %>%
+perf_metrics_rf_cv <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_cv_cm_rf$overall, model_cv_cm_rf$byClass)) %>%
         mutate(algorithm = "random_forest",
-               phase = "trained")
+               phase = "cross_validation")
 
-perf_metrics_rt_trained <- data.frame(metric = metric_labels,
-                                        metric_result = c(model_trained_cm_rt$overall, model_trained_cm_rt$byClass)) %>%
+perf_metrics_rt_cv <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_cv_cm_rt$overall, model_cv_cm_rt$byClass)) %>%
         mutate(algorithm = "regression_tree",
-               phase = "trained")
+               phase = "cross_validation")
 
-perf_metrics_trained_df <- bind_rows(perf_metrics_nb_trained, perf_metrics_lr_trained, perf_metrics_rf_trained,
-                                       perf_metrics_rt_trained)
+perf_metrics_cv_df <- bind_rows(perf_metrics_nb_cv, perf_metrics_lr_cv, perf_metrics_rf_cv,
+                                       perf_metrics_rt_cv)
 
-names(perf_metrics_lr_trained) <- c("metric", "metric_result_lr_tr", "algorithm", "phase")
-names(perf_metrics_nb_trained) <- c("metric", "metric_result_nb_tr", "algorithm", "phase")
-names(perf_metrics_rf_trained) <- c("metric", "metric_result_rf_tr", "algorithm", "phase")
-names(perf_metrics_rt_trained) <- c("metric", "metric_result_rt_tr", "algorithm", "phase")
+names(perf_metrics_lr_cv) <- c("metric", "metric_result_lr_tr", "algorithm", "phase")
+names(perf_metrics_nb_cv) <- c("metric", "metric_result_nb_tr", "algorithm", "phase")
+names(perf_metrics_rf_cv) <- c("metric", "metric_result_rf_tr", "algorithm", "phase")
+names(perf_metrics_rt_cv) <- c("metric", "metric_result_rt_tr", "algorithm", "phase")
 
-perf_metrics_trained_w_df <- merge(x = perf_metrics_lr_trained[ , c(1:2)], y = perf_metrics_nb_trained[ , c(1:2)],
+perf_metrics_cv_w_df <- merge(x = perf_metrics_lr_cv[ , c(1:2)], y = perf_metrics_nb_cv[ , c(1:2)],
                                      by = "metric", all.x = TRUE, all.y = TRUE)
-perf_metrics_trained_w_df <- merge(x = perf_metrics_trained_w_df, y = perf_metrics_rf_trained[ , c(1:2)],
+perf_metrics_cv_w_df <- merge(x = perf_metrics_cv_w_df, y = perf_metrics_rf_cv[ , c(1:2)],
                                      by = "metric", all.x = TRUE, all.y = TRUE)
-perf_metrics_trained_w_df <- merge(x = perf_metrics_trained_w_df, y = perf_metrics_rt_trained[ , c(1:2)],
+perf_metrics_cv_w_df <- merge(x = perf_metrics_cv_w_df, y = perf_metrics_rt_cv[ , c(1:2)],
                                      by = "metric", all.x = TRUE, all.y = TRUE)
 
-perf_metrics_df <- merge(x = perf_metrics_untrained_w_df, y = perf_metrics_trained_w_df, by = "metric", all.x = TRUE, all.y = TRUE) %>%
+perf_metrics_df <- merge(x = perf_metrics_et_w_df, y = perf_metrics_cv_w_df, by = "metric", all.x = TRUE, all.y = TRUE) %>%
         dplyr::select(metric, metric_result_lr, metric_result_lr_tr, metric_result_nb, metric_result_nb_tr, metric_result_rf,
                       metric_result_rf_tr, metric_result_rt, metric_result_rt_tr)
 
@@ -862,10 +865,10 @@ perf_metrics_df %>%
         tab_spanner(label = md("*Naive Bayes*"), columns = vars(metric_result_nb, metric_result_nb_tr)) %>%
         tab_spanner(label = md("*Random Forest*"), columns = vars(metric_result_rf, metric_result_rf_tr)) %>%
         tab_spanner(label = md("*Regression Tree*"), columns = vars(metric_result_rt, metric_result_rt_tr)) %>%
-        cols_label(metric_result_lr = "untrained", metric_result_lr_tr = "trained",
-                   metric_result_nb = "untrained", metric_result_nb_tr = "trained",
-                   metric_result_rf = "untrained", metric_result_rf_tr = "trained",
-                   metric_result_rt = "untrained", metric_result_rt_tr = "trained") %>%
+        cols_label(metric_result_lr = "80/20", metric_result_lr_tr = "Cross Validation",
+                   metric_result_nb = "80/20", metric_result_nb_tr = "Cross Validation",
+                   metric_result_rf = "80/20", metric_result_rf_tr = "Cross Validation",
+                   metric_result_rt = "80/20", metric_result_rt_tr = "Cross Validation") %>%
         fmt_percent(c(2:9), decimals = 1) %>%
         tab_options(table.font.size = 12,
                     row.padding = px(1)
@@ -980,6 +983,7 @@ Following are the online articles and resources I used in compiling this analysi
     * **Logistic regression >>** 
       * https://www.datacamp.com/community/tutorials/logistic-regression-R
       * https://www.r-bloggers.com/evaluating-logistic-regression-models/
+    * **Cross-validation >>** 
   * **Online tools >>** 
     * https://www.google.com/search?q=color+picker
   * **Technical troubleshooting >>** https://stackoverflow.com/
@@ -987,6 +991,9 @@ Following are the online articles and resources I used in compiling this analysi
     * **gtable >>** 
       * https://github.com/rstudio/gt/blob/master/README.md
       * https://www.rdocumentation.org/packages/gt/versions/0.1.0
+    * **caret >>**
+      * https://cran.r-project.org/web/packages/caret/vignettes/caret.html
+      * http://www.rebeccabarter.com/blog/2017-11-17-caret_tutorial/
 
 
 
