@@ -559,7 +559,14 @@ We have already completed a large portion of data collection and preparation for
 modeling_data_df <- attrition_data_df
 
 # Remove StandardHours and Over18 since there is no variation and remove Attrition since it is redundant
-modeling_data_df <- modeling_data_df[ , -c(10, 13, 29)]
+modeling_data_df <- modeling_data_df[ , -c(10, 13, 35)]
+modeling_data_df$Attrition <- as.character(modeling_data_df$Attrition)
+modeling_data_df <- modeling_data_df %>% 
+        dplyr::select(-Attrition, Attrition)
+
+modeling_data_df$Attrition[modeling_data_df$Attrition == "No"] <- "active"
+modeling_data_df$Attrition[modeling_data_df$Attrition == "Yes"] <- "termed"
+modeling_data_df$Attrition <- factor(modeling_data_df$Attrition, levels = c("active", "termed"))
 
 set.seed(1)
 
@@ -582,50 +589,80 @@ When building a machine learning model, it can be beneficial to try a few differ
 set.seed(1)
 
 # Fit the models
-model_nb <- NaiveBayes(terminated ~ ., data = train_data_df[, -1])
-model_lr <- glm(terminated ~ ., data = train_data_df[, -1], family = "binomial")
-model_rf <- randomForest(terminated ~ ., data = train_data_df[, -1])
-model_rt <- rpart(terminated ~ ., data = train_data_df[, -1])
+model_nb <- NaiveBayes(Attrition ~ ., data = train_data_df[, -1])
+model_lr <- glm(Attrition ~ ., data = train_data_df[, -1], family = "binomial")
+model_rf <- randomForest(Attrition ~ ., data = train_data_df[, -1])
+model_rt <- rpart(Attrition ~ ., data = train_data_df[, -1])
 
 # Make predictions
 predictions_nb <- model_nb %>% predict(test_data_df)
 predictions_lr_resp <- model_lr %>% predict(test_data_df, type = "response")
-predictions_lr <- factor(ifelse(predictions_lr_resp > 0.5, 1, 0), levels = c(0, 1))
+predictions_lr <- factor(ifelse(predictions_lr_resp > 0.5, "termed", "active"), levels = c("active", "termed"))
 predictions_rf <- model_rf %>% predict(test_data_df)
 predictions_rt <- model_rt %>% predict(test_data_df, type = "class")
 
 # Model accuracies
-model_build_accuracy_nb <- mean(predictions_nb$class == test_data_df$terminated)
-model_build_accuracy_lr <- mean(predictions_lr == test_data_df$terminated)
-model_build_accuracy_rf <- mean(predictions_rf == test_data_df$terminated)
-model_build_accuracy_rt <- mean(predictions_rt == test_data_df$terminated)
+model_build_accuracy_nb <- mean(predictions_nb$class == test_data_df$Attrition)
+model_build_accuracy_lr <- mean(predictions_lr == test_data_df$Attrition)
+model_build_accuracy_rf <- mean(predictions_rf == test_data_df$Attrition)
+model_build_accuracy_rt <- mean(predictions_rt == test_data_df$Attrition)
 
 # Confusion matrices
-model_build_cm_nb <- confusionMatrix(predictions_nb$class, test_data_df$terminated)
-model_build_cm_lr <- confusionMatrix(predictions_lr, test_data_df$terminated)
-model_build_cm_rf <- confusionMatrix(predictions_rf, test_data_df$terminated)
-model_build_cm_rt <- confusionMatrix(predictions_rt, test_data_df$terminated)
+model_build_cm_nb <- confusionMatrix(predictions_nb$class, test_data_df$Attrition)
+model_build_cm_lr <- confusionMatrix(predictions_lr, test_data_df$Attrition)
+model_build_cm_rf <- confusionMatrix(predictions_rf, test_data_df$Attrition)
+model_build_cm_rt <- confusionMatrix(predictions_rt, test_data_df$Attrition)
+
+cm_nb <- data.frame(as.matrix(model_build_cm_nb$table)) %>%
+        mutate(algorithm = "naive_bayes")
+
+cm_lr <- data.frame(as.matrix(model_build_cm_lr$table)) %>%
+        mutate(algorithm = "logistic_regression")
+
+cm_rf <- data.frame(as.matrix(model_build_cm_rf$table)) %>%
+        mutate(algorithm = "random_forest")
+
+cm_rt <- data.frame(as.matrix(model_build_cm_rt$table)) %>%
+        mutate(algorithm = "regression_tree")
+
+
+
+```
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 # Model performance metrics
 # F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
-perf_metrics_nb_untrained <- as.data.frame(c(model_build_cm_nb$overall, model_build_cm_nb$byClass))
-perf_metrics_lr_untrained <- as.data.frame(c(model_build_cm_lr$overall, model_build_cm_lr$byClass))
-perf_metrics_rf_untrained <- as.data.frame(c(model_build_cm_rf$overall, model_build_cm_rf$byClass))
-perf_metrics_rt_untrained <- as.data.frame(c(model_build_cm_rt$overall, model_build_cm_rt$byClass))
 
-metric_labels <- row.names(perf_metrics_nb_untrained)
+metric_labels <- row.names(as.data.frame(c(model_build_cm_nb$overall, model_build_cm_nb$byClass)))
 
-perf_metrics_untrained_df <- bind_cols(perf_metrics_nb_untrained, perf_metrics_lr_untrained, perf_metrics_rf_untrained,
+perf_metrics_nb_untrained <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_build_cm_nb$overall, model_build_cm_nb$byClass)) %>%
+        mutate(algorithm = "naive_bayes",
+               phase_category = "untrained")
+
+perf_metrics_lr_untrained <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_build_cm_lr$overall, model_build_cm_lr$byClass)) %>%
+        mutate(algorithm = "logistic_regression",
+               phase_category = "untrained")
+
+perf_metrics_rf_untrained <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_build_cm_rf$overall, model_build_cm_rf$byClass)) %>%
+        mutate(algorithm = "random_forest",
+               phase_category = "untrained")
+
+perf_metrics_rt_untrained <- data.frame(metric = metric_labels,
+                                        metric_result = c(model_build_cm_rt$overall, model_build_cm_rt$byClass)) %>%
+        mutate(algorithm = "regression_tree",
+               phase_category = "untrained")
+
+perf_metrics_untrained_df <- bind_rows(perf_metrics_nb_untrained, perf_metrics_lr_untrained, perf_metrics_rf_untrained,
                                        perf_metrics_rt_untrained)
-names(perf_metrics_untrained_df) <- c("naive_bayes_untrained", "logistic_regression_untrained",
-                                      "random_forest_untrained", "regression_tree_untrained")
-perf_metrics_untrained_df$metric <- metric_labels
-
-perf_metrics_untrained_df <- perf_metrics_untrained_df[ , c(5, 2, 1, 3:4)]
 
 perf_metrics_untrained_df %>%
-        gt() %>%
-        fmt_percent(c(2:5), decimals = 1) %>%
+        gt(group = "algorithm") %>%
+        fmt_percent(2, decimals = 1) %>%
         tab_options(table.font.size = 10,
                     row.padding = px(1)
                     )
@@ -759,7 +796,9 @@ Following are the online articles and resources I used in compiling this analysi
     * https://www.google.com/search?q=color+picker
   * **Technical troubleshooting >>** https://stackoverflow.com/
     * https://stackoverflow.com/questions/8499361/easy-way-of-counting-precision-recall-and-f1-score-in-r
-    * **gtable >>** https://www.rdocumentation.org/packages/gt/versions/0.1.0
+    * **gtable >>** 
+      * https://github.com/rstudio/gt/blob/master/README.md
+      * https://www.rdocumentation.org/packages/gt/versions/0.1.0
 
 
 
