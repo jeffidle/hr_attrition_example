@@ -60,6 +60,7 @@ library(gridExtra)
 library(klaR)
 library(rpart)
 library(gt)
+library(survey)
 
 ```
 
@@ -707,10 +708,26 @@ perf_metrics_rt_untrained <- data.frame(metric = metric_labels,
 perf_metrics_untrained_df <- bind_rows(perf_metrics_nb_untrained, perf_metrics_lr_untrained, perf_metrics_rf_untrained,
                                        perf_metrics_rt_untrained)
 
-perf_metrics_untrained_df %>%
-        gt(group = "algorithm") %>%
-        fmt_percent(2, decimals = 1) %>%
-        tab_options(table.font.size = 10,
+names(perf_metrics_lr_untrained) <- c("metric", "metric_result_lr", "algorithm", "phase")
+names(perf_metrics_nb_untrained) <- c("metric", "metric_result_nb", "algorithm", "phase")
+names(perf_metrics_rf_untrained) <- c("metric", "metric_result_rf", "algorithm", "phase")
+names(perf_metrics_rt_untrained) <- c("metric", "metric_result_rt", "algorithm", "phase")
+
+perf_metrics_untrained_w_df <- merge(x = perf_metrics_lr_untrained[ , c(1:2)], y = perf_metrics_nb_untrained[ , c(1:2)],
+                                     by = "metric", all.x = TRUE, all.y = TRUE)
+perf_metrics_untrained_w_df <- merge(x = perf_metrics_untrained_w_df, y = perf_metrics_rf_untrained[ , c(1:2)],
+                                     by = "metric", all.x = TRUE, all.y = TRUE)
+perf_metrics_untrained_w_df <- merge(x = perf_metrics_untrained_w_df, y = perf_metrics_rt_untrained[ , c(1:2)],
+                                     by = "metric", all.x = TRUE, all.y = TRUE)
+
+perf_metrics_untrained_w_df %>%
+        gt() %>%
+        cols_label(metric_result_lr = "logistic regression",
+                   metric_result_nb = "naive Bayes",
+                   metric_result_rf = "random forest",
+                   metric_result_rt = "regression tree") %>%
+        fmt_percent(c(2:5), decimals = 1) %>%
+        tab_options(table.font.size = 12,
                     row.padding = px(1)
                     )
 
@@ -780,7 +797,7 @@ confusion_matrix_combo <- confusion_matrix_combo %>%
 
 confusion_matrix_combo %>%
         gt(group = "algorithm") %>%
-        tab_spanner(label = md("*Un-trained*"), columns = vars(n_ut, pct_ut)) %>%
+        tab_spanner(label = md("*Untrained*"), columns = vars(n_ut, pct_ut)) %>%
         tab_spanner(label = md("*Trained*"), columns = vars(n_tr, pct_tr)) %>%
         cols_label(n_ut = "n", pct_ut = "%", n_tr = "n", pct_tr = "%") %>%
         fmt_percent(c(5, 7), decimals = 1) %>%
@@ -823,51 +840,110 @@ perf_metrics_rt_trained <- data.frame(metric = metric_labels,
 perf_metrics_trained_df <- bind_rows(perf_metrics_nb_trained, perf_metrics_lr_trained, perf_metrics_rf_trained,
                                        perf_metrics_rt_trained)
 
-perf_metrics_trained_df %>%
-        gt(group = "algorithm") %>%
-        fmt_percent(2, decimals = 1) %>%
-        tab_options(table.font.size = 10,
+names(perf_metrics_lr_trained) <- c("metric", "metric_result_lr_tr", "algorithm", "phase")
+names(perf_metrics_nb_trained) <- c("metric", "metric_result_nb_tr", "algorithm", "phase")
+names(perf_metrics_rf_trained) <- c("metric", "metric_result_rf_tr", "algorithm", "phase")
+names(perf_metrics_rt_trained) <- c("metric", "metric_result_rt_tr", "algorithm", "phase")
+
+perf_metrics_trained_w_df <- merge(x = perf_metrics_lr_trained[ , c(1:2)], y = perf_metrics_nb_trained[ , c(1:2)],
+                                     by = "metric", all.x = TRUE, all.y = TRUE)
+perf_metrics_trained_w_df <- merge(x = perf_metrics_trained_w_df, y = perf_metrics_rf_trained[ , c(1:2)],
+                                     by = "metric", all.x = TRUE, all.y = TRUE)
+perf_metrics_trained_w_df <- merge(x = perf_metrics_trained_w_df, y = perf_metrics_rt_trained[ , c(1:2)],
+                                     by = "metric", all.x = TRUE, all.y = TRUE)
+
+perf_metrics_df <- merge(x = perf_metrics_untrained_w_df, y = perf_metrics_trained_w_df, by = "metric", all.x = TRUE, all.y = TRUE) %>%
+        dplyr::select(metric, metric_result_lr, metric_result_lr_tr, metric_result_nb, metric_result_nb_tr, metric_result_rf,
+                      metric_result_rf_tr, metric_result_rt, metric_result_rt_tr)
+
+perf_metrics_df %>%
+        gt() %>%
+        tab_spanner(label = md("*Logistic Regression*"), columns = vars(metric_result_lr, metric_result_lr_tr)) %>%
+        tab_spanner(label = md("*Naive Bayes*"), columns = vars(metric_result_nb, metric_result_nb_tr)) %>%
+        tab_spanner(label = md("*Random Forest*"), columns = vars(metric_result_rf, metric_result_rf_tr)) %>%
+        tab_spanner(label = md("*Regression Tree*"), columns = vars(metric_result_rt, metric_result_rt_tr)) %>%
+        cols_label(metric_result_lr = "untrained", metric_result_lr_tr = "trained",
+                   metric_result_nb = "untrained", metric_result_nb_tr = "trained",
+                   metric_result_rf = "untrained", metric_result_rf_tr = "trained",
+                   metric_result_rt = "untrained", metric_result_rt_tr = "trained") %>%
+        fmt_percent(c(2:9), decimals = 1) %>%
+        tab_options(table.font.size = 12,
                     row.padding = px(1)
                     )
 
 ```
 
 
-
-
 ### Improve Model Performance
+In this section, we will select one model and performance tune it. For an actual project, analysts would be wise to performance tune all reasonably feasible models. This analysis will not go into ensemble modeling, but blending of models would fall within the scope of improving model performance.
 
-Tweak parameters; feature selection; set cost consequences; apply model to all active employees; apply model to randomly generated employees
+We will performance-tune the logistic regression model because it:  
+
+  1. is commonly used in HR analytics;
+  2. has the best balance between recall and sensitivity versus the other models;
+  3. it has the highest balanced accuracy;
+  4. it has one of the lowest accuracy p-values; and
+  5. it gives us more information about the levels within our factor variables than the other models.
+
+All of the original models we built and trained used all of the features in our dataset. We know that some of the features are not significant and some of the features could have multi-collinearity (they could be measuring the same or similar things). Therefore, our performance tuning will involve feature selection. We will be assessing "goodness-of-fit" measures to try to determine whether we have the optimal number of features. We will also different approaches to training the model. 
+
+Finally, we will set cost consequences, which help our models understand whether certain incorrect predictions are more costly than other incorrect predictions. Imagine that we are applying our model to our currently active employee population to find areas of retentionn risk. If we incorrectly predict that an active employee is going to leave when they in fact are not a retention risk, then perhaps we've spent time and resources to retain someone whom we were not going to lose. But the more expensive incorrect prediction is when an employee is a retention risk and we did not predict them as such. The employee will leave the company and we missed the opportunity to retain her or him--not to mention incurred the costs associated with that employee's turnover. We can set up a cost structure for correct and incorrect predictions such that the model will try to optimize predictions for the highest-cost area, which is to correctly identify employees at risk for our project.
+
+After we have improved our logistic regression to the point where we are satisfied with its performance, we will apply the model to all of our active employees to score their retention risk. We will then look at our population in aggreggate to see if there are areas or employees who have a significant retention risk.
+
+Let's start with logically looking at the data for highly-related variables. Our dataset includes columns for the employee's Hourly Rate, Daily Rate, Monthly Rate and Monthly Income. These four variables all measure the same factor--the employee's income. All of the employees in this dataset have the same Standard Hours, so we can use the same formula to calculate their Annual Wages. We will create a single variable called Annual Wages that multiplies their monthly income by 12, then remove these four variables from our dataset. We will then run a random forest algorithm to calculate the importance of each factor and will use the Wald test to assess statical significance of each factor.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+modeling_data_improve_df <- modeling_data_df %>%
+        mutate(AnnualWages = MonthlyIncome * 12) %>%
+        dplyr::select(-HourlyRate, -DailyRate, - MonthlyRate, -MonthlyIncome)
 
 set.seed(1)
 
 options(scipen = 999)
 
-feature_select_lr <- varImp(model_test_lr_df)$importance
+fit_rf <- randomForest(Attrition ~ ., data = modeling_data_improve_df[-1])
+
+mod_fit_one <- glm(Attrition ~ ., data = modeling_data_improve_df, family="binomial")
+
+factor_list <- names(modeling_data_improve_df[ , -c(1, 28)])
+
+for(factor_l in factor_list){
+        
+        tmp_df <- data.frame(factor = regTermTest(mod_fit_one, factor_l)$test.terms,
+                             p.value = regTermTest(mod_fit_one, factor_l)$p
+                             )
+        
+        if(!exists("factor_sig_df")){
+                
+               factor_sig_df <- tmp_df 
+                
+        } else factor_sig_df <- bind_rows(factor_sig_df, tmp_df)
+        
+}
+
+# Create an importance based on mean decreasing gini
+feature_select_df <- as.data.frame(importance(fit_rf))
+feature_select_df$factor <-row.names(feature_select_df)
+feature_select_df <- feature_select_df %>%
+        arrange(desc(MeanDecreaseGini)) %>%
+        mutate(importance = round(MeanDecreaseGini, 1)) %>%
+        dplyr::select(factor, importance)
+
+feature_select_df %>%
+        gt() %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
 
 ```
 
-
+Now let's take a look at the goodness-of-fit measures for all importance threshold cutoff points. The goodness-of-fit measures we will analyze are:  1) likelihood ratio test; 2) pseudo R-squared; and 3) the Hosmer-Lemeshow Test.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
-set.seed(1)
 
-options(scipen = 999)
-
-varImp(model_test_lr_df)
-varImp(model_test_nb_df)
-varImp(model_test_rf_df)
-varImp(model_test_rt_df)
-
-model_input_data_df <- attrition_data_df[ , c(2:9, 11:28, 30:35)]
-
-fit_rf <- randomForest(terminated ~ ., data = model_input_data_df)
-
-# Create an importance based on mean decreasing gini
-gini_df <- as.data.frame(importance(fit_rf))
 
 ```
 
