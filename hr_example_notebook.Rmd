@@ -625,7 +625,23 @@ cm_rf <- data.frame(as.matrix(model_build_cm_rf$table)) %>%
 cm_rt <- data.frame(as.matrix(model_build_cm_rt$table)) %>%
         mutate(algorithm = "regression_tree")
 
+confusion_matrix_untrained <- bind_rows(cm_nb, cm_lr, cm_rf, cm_rt)
+names(confusion_matrix_untrained) <- c("predicted", "actual", "n", "algorithm")
 
+confusion_matrix_untrained <- confusion_matrix_untrained %>%
+        group_by(algorithm) %>%
+        mutate(pct = n / sum(n, na.rm = TRUE)) %>%
+        ungroup(algorithm) %>%
+        mutate(prediction_category = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, prediction_category, n, pct, algorithm) %>%
+        arrange(algorithm, prediction_category, actual, predicted)
+
+confusion_matrix_untrained %>%
+        gt(group = "algorithm") %>%
+        fmt_percent(5, decimals = 1) %>%
+        tab_options(table.font.size = 10,
+                    row.padding = px(1)
+                    )
 
 ```
 
