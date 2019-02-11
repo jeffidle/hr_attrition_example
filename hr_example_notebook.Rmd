@@ -951,56 +951,74 @@ feature_select_df %>%
 ```
 <br>
 <br>
-Let's toss out the factors that are not significant (p-value > 0.05). That leaves us with 20 factors. That's still a lot of variables to include in our model, but they could all add value. Let's take a look at the goodness-of-fit measures for all importance threshold cutoff points. The goodness-of-fit measures we will analyze are:  1) likelihood ratio test; 2) pseudo R-squared; and 3) the Hosmer-Lemeshow Test.
+Seven factors are not significant (p-value > 0.05). That leaves us with 20 factors. That's still a lot of variables to include in our model, but they could all add value. In addition, we may still want to include some of the 7 that are showing as not significant. Let's take a look at a goodness-of-fit measure for the various models we could construct with these 27 factors. We will use a pseudo R-squared measure called McFadden's R to assess the goodness of fit of the models.
 
-Likelihood ratio discussion
-
-Pseudo R squared discussion
-
-Hosmer-Lemeshow Test discussion
+The chart below shows the increase in McFadden's R with each factor added to the model. The first attribut with which we start is Age and a model that only uses Age has a McFadden's R of 0.03. This means that the model explains about 3% of the variability in the data. Not a very good model. Adding the Overtime factor to the model increases McFadden's R from 0.03 to 0.97. Simply adding the Overtime model increases the power of the model such that it explains an additional 7% of the variability in the data. The first 20 significant variables add much more to the model than the last 7 not significant variables. The first 20 factors get the model to a 0.356 McFadden's R and the remaining 7 factors only get the McFadden's R to 0.359.
+<br>
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
-features_selected1_df <- feature_select_df %>%
-        filter(significant == "significant (p-value <= 0.05)") %>%
-        dplyr::select(-significant)
+# features_selected1_df <- feature_select_df %>%
+#         filter(significant == "significant (p-value <= 0.05)") %>%
+#         dplyr::select(-significant)
 
-feature_list <- unique(features_selected1_df$factor)
+feature_list <- unique(feature_select_df$factor)
 
 # Likelihood ratio test
 
 iter_count <- length(feature_list) - 1
 
 for(i in 1:iter_count){
-        
+
         j <- i+1
-        
+
         mod1_factors <- feature_list[1:i]
         mod2_factors <- feature_list[1:j]
-        
+
         mod1_df <- modeling_data_improve_df %>% dplyr::select(Attrition, mod1_factors)
         mod2_df <- modeling_data_improve_df %>% dplyr::select(Attrition, mod2_factors)
-        
+
         model1_less <- glm(Attrition ~ ., data = mod1_df, family="binomial")
         model2_more <- glm(Attrition ~ ., data = mod2_df, family="binomial")
-        
+
         likelihood_ratio <- anova(model1_less, model2_more, test ="Chisq")
-        
+
         tmp_likelihood_df <- data.frame(
                 model1_attributes = paste0(mod1_factors, collapse = ", "),
                 model2_attributes = paste0(mod2_factors, collapse = ", "),
                 deviance = likelihood_ratio[2, 4],
                 p.value = likelihood_ratio[2, 5]
         )
-        
+
         if(!exists("likelihood_df")){
-                
-               likelihood_df <- tmp_likelihood_df 
-                
+
+               likelihood_df <- tmp_likelihood_df
+
         } else likelihood_df <- bind_rows(likelihood_df, tmp_likelihood_df)
-        
+
 }
 
+likelihood_df <- likelihood_df %>%
+        mutate(record_id = row_number() + 1)
+
+names(likelihood_df) <- c("fewer_attributes_model", "more_attributes_model", "deviance", "likelihood_p.value", "record_id")
+
+likelihood_print_df <- likelihood_df %>%
+        dplyr::select(-record_id)
+
+# likelihood_print_df %>%
+#         gt() %>%
+#         fmt_percent(4, decimals = 4) %>%
+#         fmt_number(3, decimals = 1) %>%
+#         tab_options(table.font.size = 10,
+#                     row.padding = px(1)
+#                     )
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+# Pseudo R squared (McFadden's R)
 model_count <- length(feature_list)
 
 for(i in 1:model_count){
@@ -1027,13 +1045,105 @@ for(i in 1:model_count){
         
 }
 
-ggplot(pseudo_r_df, aes(x = attribute_count, y = mcfadden_r)) +
-        geom_line() +
+pseudo_r_df <- pseudo_r_df %>%
+        mutate(record_id = row_number())
+
+feature_select_df <- feature_select_df %>%
+        mutate(record_id = row_number())
+
+feature_select_df <- merge(x = feature_select_df, y = likelihood_df, by = "record_id", all.x = TRUE, all.y = FALSE)
+feature_select_df <- merge(x = feature_select_df, y = pseudo_r_df, by = "record_id", all.x = TRUE, all.y = FALSE)
+
+ggplot(feature_select_df, aes(x = attribute_count, y = mcfadden_r, color = significant)) +
+        geom_line(size = 4) +
+        labs(title = "McFadden R increase with addition of attribute to model", subtitle = "(significant and not-significant attributes)", x = "attribute count", y = "") +
+        scale_color_manual(values = custom_palette[c(4, 1)]) +
         theme_minimal()
 
 ```
 
+Given the preceding analysis, we will use the 20 significant variables in our model and drop the remaining 7 non-significant variables. The last step before we build our final model will be to assign cost consequences. For our predictor model there are two types of errors:  1) an active employee is incorrectly predicted to be a retention risk; and 2) a retention risk employee is predicted to be a non-retention risk. We want to minimize the errors in which true retention-risk employees are classified as non-retention risk employees because we miss the opportunity to intervene before the employee leaves. If we mis-classify an active employee as a retention risk, then our loss is only the time and effort we spent trying to retain someone who did not intend to leave. 
 
+We will assign greater costs to errors that mis-classify true retention risks. We will make an assumption that incorrect classifications of true retention risks are 8 times more costly than incorrect classifications of true non-retention risks.
+
+
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+features_selected1_df <- feature_select_df %>%
+        filter(significant == "significant (p-value <= 0.05)") %>%
+        dplyr::select(-significant)
+
+features_selected_list <- unique(features_selected1_df$factor)
+
+final_model_data_df <- modeling_data_improve_df %>%
+        dplyr::select(EmployeeNumber, features_selected_list, Attrition)
+
+set.seed(1)
+
+# Build the models >> note that we use the full dataset (not the 80/20 split) because we are
+# using the cross-validation method
+model_cost_cv_lr_df <- train(Attrition ~ ., data = final_model_data_df[, -1], method = "glm", family = "binomial",
+                          trControl = trainControl("cv", number = 10))
+
+# Make predictions
+predicted_classes_cost_cv_lr <- model_cost_cv_lr_df %>% predict(final_model_data_df)
+
+# Calculate the confusion matrices
+model_cost_cv_cm_lr <- confusionMatrix(predicted_classes_cost_cv_lr, final_model_data_df$Attrition)
+
+cm_cv_cost_lr <- data.frame(as.matrix(model_cost_cv_cm_lr$table)) %>%
+        mutate(algorithm = "logistic_regression")
+
+names(cm_cv_cost_lr) <- c("predicted", "actual", "n_cost", "algorithm")
+
+cm_cv_cost_lr <- cm_cv_cost_lr %>%
+        mutate(pct_cost = n_cost / sum(n_cost, na.rm = TRUE)) %>%
+        mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, outcome, n_cost, pct_cost, algorithm) %>%
+        arrange(algorithm, outcome, actual, predicted)
+
+cm_cv_cost_lr$phase <- "cost_controlled_cross_validation"
+
+cm_cv_cost_print_lr <- cm_cv_cost_lr %>%
+        dplyr::select(-algorithm, -phase)
+
+cm_cv_cost_print_lr %>%
+        gt() %>%
+        tab_spanner(label = md("*Cost-controlled cross-validation*"), columns = vars(n_cost, pct_cost)) %>%
+        cols_label(n_cost = "n", pct_cost = "%") %>%
+        fmt_percent(c(5), decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
+
+```
+
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+# Model performance metrics
+# F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
+
+metric_cost_labels <- row.names(as.data.frame(c(model_cost_cv_cm_lr$overall, model_cost_cv_cm_lr$byClass)))
+
+perf_metrics_cost_cv_lr <- data.frame(metric = metric_cost_labels,
+                                        metric_result = c(model_cost_cv_cm_lr$overall, model_cost_cv_cm_lr$byClass)) %>%
+        mutate(algorithm = "logistic_regression",
+               phase = "cost_controlled_cross_validation")
+
+names(perf_metrics_cost_cv_lr) <- c("metric", "metric_result_lr_cost", "algorithm", "phase")
+
+perf_metrics_cost_cv_lr %>%
+        gt() %>%
+        cols_label(metric_result_lr_cost = "cost-controlled cross-validation") %>%
+        fmt_percent(c(2), decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
+
+```
 
 
 
