@@ -62,6 +62,7 @@ library(rpart)
 library(gt)
 library(survey)
 library(pscl)
+library(C50)
 
 ```
 
@@ -881,21 +882,19 @@ perf_metrics_df %>%
 ### Improve Model Performance
 In this section, we will select one model and performance tune it. For an actual project, analysts would be wise to performance tune all reasonably feasible models. This analysis will not go into ensemble modeling, but blending of models would fall within the scope of improving model performance.
 
-We will performance-tune the logistic regression model because it:  
+So far the best model seems to be the cross-validated logistic regression model because it:  
 
-  1. is commonly used in HR analytics;
-  2. has the best balance between recall and sensitivity versus the other models;
-  3. has the highest balanced accuracy;
-  4. has one of the lowest accuracy p-values; and
-  5. gives us more information about the levels within our factor variables than the other models.
+  1. has the best balance between recall and sensitivity versus the other models;
+  2. has the highest balanced accuracy; and
+  3. has one of the lowest accuracy p-values.
+  
+Let's try two more approaches to see if we can get better performance. First, all the models we've built so far used all the features in our dataset. We know that some of the features are not significant and some of the features could have multi-colinearity (they could be measuring the same or similar things). Therefore, let's implement feature selection and assessing "goodness-of-fit" measures to try to determine the optimal number of features to include in our cross-validated logistic regression model. 
 
-All of the original models we built and trained used all of the features in our dataset. We know that some of the features are not significant and some of the features could have multi-colinearity (they could be measuring the same or similar things). Therefore, our performance tuning will involve feature selection. We will be assessing "goodness-of-fit" measures to try to determine whether we have the optimal number of features. We will also different approaches to training the model. 
+Finally, let's try a new model--the C5.0 decision tree. This model will allow us to set cost consequences. These cost assumptions help our model understand whether certain incorrect predictions are more costly than other incorrect predictions. Imagine that we are applying our model to our currently active employee population to find areas of retentionn risk. If we incorrectly predict that an active employee is going to leave when they in fact are not a retention risk, then perhaps we've spent time and resources to retain someone whom we were not going to lose. But the more expensive incorrect prediction is when an employee is a retention risk and we did not predict them as such. The employee will leave the company and we missed the opportunity to retain her or him--not to mention incurred the costs associated with that employee's turnover. We can set up a cost structure for correct and incorrect predictions such that the model will try to optimize predictions for the highest-cost area, which is to correctly identify employees at risk for our project.
 
-Finally, we will set cost consequences, which help our models understand whether certain incorrect predictions are more costly than other incorrect predictions. Imagine that we are applying our model to our currently active employee population to find areas of retentionn risk. If we incorrectly predict that an active employee is going to leave when they in fact are not a retention risk, then perhaps we've spent time and resources to retain someone whom we were not going to lose. But the more expensive incorrect prediction is when an employee is a retention risk and we did not predict them as such. The employee will leave the company and we missed the opportunity to retain her or him--not to mention incurred the costs associated with that employee's turnover. We can set up a cost structure for correct and incorrect predictions such that the model will try to optimize predictions for the highest-cost area, which is to correctly identify employees at risk for our project.
 
-After we have improved our logistic regression to the point where we are satisfied with its performance, we will apply the model to all of our active employees to score their retention risk. We will then look at our population in aggreggate to see if there are areas or employees who have a significant retention risk.
-
-Let's start with logically looking at the data for highly-related variables. Our dataset includes columns for the employee's Hourly Rate, Daily Rate, Monthly Rate and Monthly Income. These four variables all measure the same factor--the employee's income. All of the employees in this dataset have the same Standard Hours, so we can use the same formula to calculate their Annual Wages. We will create a single variable called Annual Wages that multiplies their monthly income by 12, then remove these four variables from our dataset. We will then run a random forest algorithm to calculate the importance of each factor and will use the Wald test to assess statical significance of each factor.
+####Feature Selection
+Let's start with intuitively looking at the data for highly-related variables. Our dataset includes columns for the employee's Hourly Rate, Daily Rate, Monthly Rate and Monthly Income. These four variables all measure the same factor--the employee's income. All of the employees in this dataset have the same Standard Hours, so we can use the same formula to calculate their Annual Wages. We will create a single variable called Annual Wages that multiplies their monthly income by 12, then remove these four variables from our dataset. We will then run a random forest algorithm to calculate the importance of each factor and will use the Wald test to assess statical significance of each factor.
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
@@ -1062,12 +1061,8 @@ ggplot(feature_select_df, aes(x = attribute_count, y = mcfadden_r, color = signi
 
 ```
 
-Given the preceding analysis, we will use the 20 significant variables in our model and drop the remaining 7 non-significant variables. The last step before we build our final model will be to assign cost consequences. For our predictor model there are two types of errors:  1) an active employee is incorrectly predicted to be a retention risk; and 2) a retention risk employee is predicted to be a non-retention risk. We want to minimize the errors in which true retention-risk employees are classified as non-retention risk employees because we miss the opportunity to intervene before the employee leaves. If we mis-classify an active employee as a retention risk, then our loss is only the time and effort we spent trying to retain someone who did not intend to leave. 
-
-We will assign greater costs to errors that mis-classify true retention risks. We will make an assumption that incorrect classifications of true retention risks are 8 times more costly than incorrect classifications of true non-retention risks.
-
-
-
+Given the preceding analysis, we will use the 20 significant variables in our model and drop the remaining 7 non-significant variables. As you can see in the following tables, performance has improved slightly by dropping those 7 non-significant variables. Balanced accuracy has improved by 0.4%--every little bit counts!
+<br>
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
@@ -1084,36 +1079,79 @@ set.seed(1)
 
 # Build the models >> note that we use the full dataset (not the 80/20 split) because we are
 # using the cross-validation method
-model_cost_cv_lr_df <- train(Attrition ~ ., data = final_model_data_df[, -1], method = "glm", family = "binomial",
+model_fs_cv_lr_df <- train(Attrition ~ ., data = final_model_data_df[, -1], method = "glm", family = "binomial",
                           trControl = trainControl("cv", number = 10))
 
 # Make predictions
-predicted_classes_cost_cv_lr <- model_cost_cv_lr_df %>% predict(final_model_data_df)
+predicted_classes_fs_cv_lr <- model_fs_cv_lr_df %>% predict(final_model_data_df)
 
 # Calculate the confusion matrices
-model_cost_cv_cm_lr <- confusionMatrix(predicted_classes_cost_cv_lr, final_model_data_df$Attrition)
+model_fs_cv_cm_lr <- confusionMatrix(predicted_classes_fs_cv_lr, final_model_data_df$Attrition)
 
-cm_cv_cost_lr <- data.frame(as.matrix(model_cost_cv_cm_lr$table)) %>%
+cm_cv_fs_lr <- data.frame(as.matrix(model_fs_cv_cm_lr$table)) %>%
         mutate(algorithm = "logistic_regression")
 
-names(cm_cv_cost_lr) <- c("predicted", "actual", "n_cost", "algorithm")
+names(cm_cv_fs_lr) <- c("predicted", "actual", "n_fs", "algorithm")
 
-cm_cv_cost_lr <- cm_cv_cost_lr %>%
-        mutate(pct_cost = n_cost / sum(n_cost, na.rm = TRUE)) %>%
+cm_cv_fs_lr <- cm_cv_fs_lr %>%
+        mutate(pct_fs = n_fs / sum(n_fs, na.rm = TRUE)) %>%
         mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
-        dplyr::select(actual, predicted, outcome, n_cost, pct_cost, algorithm) %>%
+        dplyr::select(actual, predicted, outcome, n_fs, pct_fs, algorithm) %>%
         arrange(algorithm, outcome, actual, predicted)
 
-cm_cv_cost_lr$phase <- "cost_controlled_cross_validation"
+cm_cv_fs_lr$phase <- "feature_selected_cross_validation"
 
-cm_cv_cost_print_lr <- cm_cv_cost_lr %>%
+cm_cv_fs_print_lr <- cm_cv_fs_lr %>%
         dplyr::select(-algorithm, -phase)
 
-cm_cv_cost_print_lr %>%
+cm_lr_compare <- confusion_matrix_combo %>%
+        filter(algorithm == "logistic_regression")
+
+cm_lr_compare <- merge(x = cm_lr_compare, y = cm_cv_fs_lr, by = c("algorithm", "actual", "predicted", "outcome"), all.x = TRUE, all.y = FALSE)
+
+cm_lr_compare <- cm_lr_compare %>%
+        dplyr::select(-c(phase, algorithm)) %>%
+        arrange(outcome, actual, predicted)
+
+cm_lr_compare %>%
         gt() %>%
-        tab_spanner(label = md("*Cost-controlled cross-validation*"), columns = vars(n_cost, pct_cost)) %>%
-        cols_label(n_cost = "n", pct_cost = "%") %>%
-        fmt_percent(c(5), decimals = 1) %>%
+        tab_header(title = "Logistic Regression Model Comparison",
+                   subtitle = "Confusion Matrices") %>%
+        tab_spanner(label = md("*Feature Selected Cross Validation*"), columns = vars(n_fs, pct_fs)) %>%
+        tab_spanner(label = md("*80/20*"), columns = vars(n_ut, pct_ut)) %>%
+        tab_spanner(label = md("*Cross Validation*"), columns = vars(n_tr, pct_tr)) %>%
+        cols_label(n_ut = "n", pct_ut = "%", n_tr = "n", pct_tr = "%", n_fs = "n", pct_fs = "%") %>%
+        fmt_percent(c(5, 7, 9), decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
+
+```
+<br>
+<br>
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+# Model performance metrics
+# F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
+
+metric_fs_labels <- row.names(as.data.frame(c(model_fs_cv_cm_lr$overall, model_fs_cv_cm_lr$byClass)))
+
+perf_metrics_fs_cv_lr <- data.frame(metric = metric_fs_labels,
+                                        metric_result = c(model_fs_cv_cm_lr$overall, model_fs_cv_cm_lr$byClass)) %>%
+        mutate(algorithm = "logistic_regression",
+               phase = "fs_controlled_cross_validation")
+
+names(perf_metrics_fs_cv_lr) <- c("metric", "metric_result_lr_fs", "algorithm", "phase")
+
+perf_metrics_lr <- merge(x = perf_metrics_df[ , c(1:3)], y = perf_metrics_fs_cv_lr[ , c(1:2)], all.x = TRUE, all.y = FALSE)
+
+perf_metrics_lr %>%
+        gt() %>%
+        tab_header(title = "Logistic Regression Model Comparison",
+                   subtitle = "Performance Metrics") %>%
+        cols_label(metric_result_lr = "80/20", metric_result_lr_tr = "Cross Validation", 
+                   metric_result_lr_fs = "Feature Selected Cross Validation") %>%
+        fmt_percent(c(2:4), decimals = 1) %>%
         tab_options(table.font.size = 12,
                     row.padding = px(1)
                     )
@@ -1121,27 +1159,75 @@ cm_cv_cost_print_lr %>%
 ```
 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+####C5.0 Decision Tree
+Now let's see if we can out-perform all the models we've built so far. The C5.0 decision tree model is commonly used because the default settings perform relatively well for most situations. We are going to assign cost consequences to this model. For our predictor model there are two types of errors:  1) an active employee is incorrectly predicted to be a retention risk; and 2) a retention risk employee is predicted to be a non-retention risk. We want to minimize the errors in which true retention-risk employees are classified as non-retention risk employees because we miss the opportunity to intervene before the employee leaves. If we mis-classify an active employee as a retention risk, then our loss is only the time and effort we spent trying to retain someone who did not intend to leave. We will assign greater costs to errors that mis-classify true retention risks. We will make an assumption that incorrect classifications of true retention risks are 8 times more costly than incorrect classifications of true non-retention risks. 
 
-# Model performance metrics
-# F-Score: (2 * Precision * Recall)/(Precision + Recall) harmonic mean of precision and recall
+<br>
+For this model, we will revert back to using the original 27 attributes since the decision tree model will makes its own decisions about which factors and levels are important and which are not.
 
-metric_cost_labels <- row.names(as.data.frame(c(model_cost_cv_cm_lr$overall, model_cost_cv_cm_lr$byClass)))
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-perf_metrics_cost_cv_lr <- data.frame(metric = metric_cost_labels,
-                                        metric_result = c(model_cost_cv_cm_lr$overall, model_cost_cv_cm_lr$byClass)) %>%
-        mutate(algorithm = "logistic_regression",
-               phase = "cost_controlled_cross_validation")
+# numericInput(inputId = "train_split", label = "Choose the percentage of data you would like to use for your training dataset:  ", value = .80, min = .01, max = 0.99, step = .05)
 
-names(perf_metrics_cost_cv_lr) <- c("metric", "metric_result_lr_cost", "algorithm", "phase")
+model_c5_data_df <- modeling_data_improve_df
 
-perf_metrics_cost_cv_lr %>%
-        gt() %>%
-        cols_label(metric_result_lr_cost = "cost-controlled cross-validation") %>%
-        fmt_percent(c(2), decimals = 1) %>%
-        tab_options(table.font.size = 12,
-                    row.padding = px(1)
-                    )
+# Remove StandardHours and Over18 since there is no variation and remove Attrition since it is redundant
+model_c5_data_df$Attrition <- as.character(modeling_data_df$Attrition)
+model_c5_data_df <- model_c5_data_df %>% 
+        dplyr::select(-Attrition, Attrition)
+
+model_c5_data_df$Attrition <- factor(modeling_data_df$Attrition, levels = c("active", "termed"))
+
+set.seed(1)
+
+# Split the data into training and test set
+training_c5_samples_df <- model_c5_data_df$EmployeeNumber %>%
+        createDataPartition(p = 0.8, list = FALSE)  
+
+train_c5_data_df  <- model_c5_data_df[training_c5_samples_df, ]
+test_c5_data_df <- model_c5_data_df[-training_c5_samples_df, ]
+
+error_cost <- matrix(c(0, 8, 8, 0), nrow = 2)
+
+c5_model <- C5.0(train_c5_data_df[-29], train_c5_data_df$Attrition, trials = 10, costs = error_cost)
+
+c5_model_predictions <- predict(c5_model, test_c5_data_df)
+
+c5_cm <- confusionMatrix(c5_model_predictions, test_c5_data_df$Attrition)
+
+c5_cm_tbl <- data.frame(as.matrix(c5_cm$table)) %>%
+        mutate(algorithm = "c5_decision_tree")
+
+names(c5_cm_tbl) <- c("predicted", "actual", "n_c5", "algorithm")
+
+c5_cm_tbl <- c5_cm_tbl %>%
+        mutate(pct_c5 = n_c5 / sum(n_c5, na.rm = TRUE)) %>%
+        mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, outcome, n_c5, pct_c5, algorithm) %>%
+        arrange(algorithm, outcome, actual, predicted)
+
+c5_cm_tbl$phase <- "feature_selected_cross_validation"
+
+c5_cm_tbl %>%
+        gt()
+
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+metric_c5_labels <- row.names(as.data.frame(c(c5_cm$overall, c5_cm$byClass)))
+
+c5_perf_measures <- data.frame(metric = metric_c5_labels,
+                                        metric_result = c(c5_cm$overall, c5_cm$byClass)) %>%
+        mutate(algorithm = "C5.0 Decision Tree",
+               phase = "Cost Controlled Adaptive Boost")
+
+names(c5_perf_measures) <- c("metric", "metric_result_c5", "algorithm", "phase")
+
+c5_perf_measures %>%
+        gt()
 
 ```
 
@@ -1176,7 +1262,7 @@ Following are the online articles and resources I used in compiling this analysi
     * **Logistic regression >>** 
       * https://www.datacamp.com/community/tutorials/logistic-regression-R
       * https://www.r-bloggers.com/evaluating-logistic-regression-models/
-    * **Cross-validation >>** 
+    * **Performance tuning >>** http://www.socr.umich.edu/people/dinov/courses/DSPA_notes/14_ImprovingModelPerformance.html 
   * **Online tools >>** 
     * https://www.google.com/search?q=color+picker
   * **Technical >>** https://stackoverflow.com/
