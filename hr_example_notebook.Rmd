@@ -1040,11 +1040,17 @@ feature_select_df <- feature_select_df %>%
 feature_select_df <- merge(x = feature_select_df, y = likelihood_df, by = "record_id", all.x = TRUE, all.y = FALSE)
 feature_select_df <- merge(x = feature_select_df, y = pseudo_r_df, by = "record_id", all.x = TRUE, all.y = FALSE)
 
-ggplot(feature_select_df, aes(x = attribute_count, y = mcfadden_r, color = significant)) +
-        geom_line(size = 4) +
-        labs(title = "McFadden R increase with addition of attribute to model", subtitle = "(significant and not-significant attributes)", x = "attribute count", y = "") +
-        scale_color_manual(values = custom_palette[c(4, 1)]) +
-        theme_minimal()
+renderPlot({
+        
+        ggplot(feature_select_df, aes(x = attribute_count, y = mcfadden_r, color = significant)) +
+                geom_line(size = 4) +
+                labs(title = "McFadden R increase with addition of attribute to model", 
+                     subtitle = "(significant and not-significant attributes)", x = "attribute count", y = "") +
+                scale_color_manual(values = custom_palette[c(4, 1)]) +
+                theme_minimal()
+        
+})
+
 
 ```
 
