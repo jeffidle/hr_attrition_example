@@ -63,6 +63,7 @@ library(gt)
 library(survey)
 library(pscl)
 library(C50)
+library(ROCR)
 
 ```
 
@@ -957,10 +958,6 @@ The chart below shows the increase in McFadden's R with each factor added to the
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
-# features_selected1_df <- feature_select_df %>%
-#         filter(significant == "significant (p-value <= 0.05)") %>%
-#         dplyr::select(-significant)
-
 feature_list <- unique(feature_select_df$factor)
 
 # Likelihood ratio test
@@ -1002,17 +999,6 @@ likelihood_df <- likelihood_df %>%
 
 names(likelihood_df) <- c("fewer_attributes_model", "more_attributes_model", "deviance", "likelihood_p.value", "record_id")
 
-likelihood_print_df <- likelihood_df %>%
-        dplyr::select(-record_id)
-
-# likelihood_print_df %>%
-#         gt() %>%
-#         fmt_percent(4, decimals = 4) %>%
-#         fmt_number(3, decimals = 1) %>%
-#         tab_options(table.font.size = 10,
-#                     row.padding = px(1)
-#                     )
-
 ```
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
@@ -1020,9 +1006,9 @@ likelihood_print_df <- likelihood_df %>%
 # Pseudo R squared (McFadden's R)
 model_count <- length(feature_list)
 
-for(i in 1:model_count){
+for(k in 1:model_count){
         
-        mod_factors <- feature_list[1:i]
+        mod_factors <- feature_list[1:k]
         
         mod_df <- modeling_data_improve_df %>% dplyr::select(Attrition, mod_factors)
         
@@ -1190,6 +1176,7 @@ test_c5_data_df <- model_c5_data_df[-training_c5_samples_df, ]
 error_cost <- matrix(c(0, 8, 8, 0), nrow = 2)
 
 c5_model <- C5.0(train_c5_data_df[-29], train_c5_data_df$Attrition, trials = 10, costs = error_cost)
+c5_model_nocost <- C5.0(train_c5_data_df[-29], train_c5_data_df$Attrition, trials = 10)
 
 c5_model_predictions <- predict(c5_model, test_c5_data_df)
 
@@ -1206,11 +1193,21 @@ c5_cm_tbl <- c5_cm_tbl %>%
         dplyr::select(actual, predicted, outcome, n_c5, pct_c5, algorithm) %>%
         arrange(algorithm, outcome, actual, predicted)
 
-c5_cm_tbl$phase <- "feature_selected_cross_validation"
+c5_cm_tbl$phase <- "cost_controlled_adaptive_boost"
 
-c5_cm_tbl %>%
-        gt()
+c5_cm_tbl_print <- c5_cm_tbl %>%
+        dplyr::select(-c(phase, algorithm))
 
+c5_cm_tbl_print %>%
+        gt() %>% 
+        tab_header(title = "C5.0 Decision Tree",
+                   subtitle = "Confusion Matrix") %>%
+        tab_spanner(label = md("*cost controlled adaptive boost*"), columns = vars(n_c5, pct_c5)) %>%
+        cols_label(n_c5 = "n", pct_c5 = "%") %>%
+        fmt_percent(5, decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
 
 ```
 
@@ -1226,10 +1223,145 @@ c5_perf_measures <- data.frame(metric = metric_c5_labels,
 
 names(c5_perf_measures) <- c("metric", "metric_result_c5", "algorithm", "phase")
 
-c5_perf_measures %>%
-        gt()
+c5_perf_measures_print <- c5_perf_measures %>%
+        dplyr::select(-c(algorithm, phase))
+
+c5_perf_measures_print %>%
+        gt() %>%
+        tab_header(title = "C5.0 Decision Tree",
+                   subtitle = "Performance Metrics") %>%
+        cols_label(metric_result_c5 = "Cost Controlled Adaptive Boost") %>%
+        fmt_percent(2, decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
 
 ```
+
+Compare all model confusion matrices here:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+Compare all model performance metrics here:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+All user to select two models and compare ROC curves here:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+selectInput(inputId = "model1_select", label = "Select the first model you'd like to compare:  ",
+            choices = c("Logistic Regression - 80/20 Validation", "Naive Bayes - 80/20 Validation",
+                        "Random Forest - 80/20 Validation", "Regression Tree - 80/20 Validation",
+                        "Logistic Regression - 10-Fold Cross Validation", "Naive Bayes - 10-Fold Cross Validation",
+                        "Random Forest - 10-Fold Cross Validation", "Regression Tree - 10-Fold Cross Validation",
+                        "Logistic Regression - Feature-Selected 10-Fold Cross Validation", "C5.0 Adaptive Boosted Decision Tree"),
+            selected = "Naive Bayes -  - 80/20 Validation")
+
+selectInput(inputId = "model2_select", label = "Select the second model you'd like to compare:  ",
+            choices = c("Logistic Regression - 80/20 Validation", "Naive Bayes - 80/20 Validation",
+                        "Random Forest - 80/20 Validation", "Regression Tree - 80/20 Validation",
+                        "Logistic Regression - 10-Fold Cross Validation", "Naive Bayes - 10-Fold Cross Validation",
+                        "Random Forest - 10-Fold Cross Validation", "Regression Tree - 10-Fold Cross Validation",
+                        "Logistic Regression - Feature-Selected 10-Fold Cross Validation", "C5.0 Adaptive Boosted Decision Tree"),
+            selected = "Naive Bayes -  - 10-Fold Cross Validation")
+
+predicted_probs_nb <- as.data.frame(model_nb %>% predict(test_data_df, type = "response"))
+predicted_probs_lr <- model_lr %>% predict(test_data_df, type = "response")
+predicted_probs_rf <- model_rf %>% predict(test_data_df, type = "response")
+predicted_probs_rt <- model_rt %>% predict(test_data_df, type = "prob")
+predicted_probs_nb_cv <- as.data.frame(model_cv_nb_df %>% predict(modeling_data_df, type = "prob"))
+predicted_probs_lr_cv <- model_cv_lr_df %>% predict(modeling_data_df, type = "prob")
+predicted_probs_rf_cv <- model_cv_rf_df %>% predict(modeling_data_df, type = "prob")
+predicted_probs_rt_cv <- model_cv_rt_df %>% predict(modeling_data_df, type = "prob")
+predicted_probs_fs_cv_lr <- model_fs_cv_lr_df %>% predict(final_model_data_df, type = "prob")
+c5_model_predictions_probs <- predict(c5_model_nocost, test_c5_data_df, type = "prob")
+
+pred_nb_80 <- prediction(predictions = predicted_probs_nb$posterior.termed, labels = test_data_df$Attrition)
+pred_lr_80 <- prediction(predictions =  predicted_probs_lr$termed, labels = test_data_df$Attrition)
+pred_rf_80 <- prediction(predictions =  predicted_probs_rf$termed, labels = test_data_df$Attrition)
+pred_rt_80 <- prediction(predictions =  predicted_probs_rt$termed, labels = test_data_df$Attrition)
+pred_nb_cv <- prediction(predictions = predicted_probs_nb_cv$posterior.termed, labels = modeling_data_df$Attrition)
+pred_lr_cv <- prediction(predictions =  predicted_probs_lr_cv$termed, labels = modeling_data_df$Attrition)
+pred_rf_cv <- prediction(predictions =  predicted_probs_rf_cv$termed, labels = modeling_data_df$Attrition)
+pred_rt_cv <- prediction(predictions =  predicted_probs_rt_cv$termed, labels = modeling_data_df$Attrition)
+pred_lr_fs_cv <- prediction(predictions =  predicted_probs_fs_cv_lr$termed, labels = final_model_data_df$Attrition)
+pred_c5_ab <- prediction(predictions =  c5_model_predictions_probs[ , 2], labels = test_c5_data_df$Attrition)
+
+model1_pick <- reactive({
+        switch(input$model1_select,
+               "Naive Bayes - 80/20 Validation" = pred_nb_80,
+               "Logistic Regression - 80/20 Validation" = pred_lr_80,
+               "Random Forest - 80/20 Validation" = pred_rf_80,
+               "Regression Tree - 80/20 Validation" = pred_rt_80,
+               "Naive Bayes - 10-Fold Cross Validation" = pred_nb_cv,
+               "Logistic Regression - 10-Fold Cross Validation" = pred_lr_cv,
+               "Random Forest - 10-Fold Cross Validation" = pred_rf_cv,
+               "Regression Tree - 10-Fold Cross Validation" = pred_rt_cv,
+               "Logistic Regression - Feature-Selected 10-Fold Cross Validation" = pred_lr_fs_cv,
+               "C5.0 Adaptive Boosted Decision Tree" = pred_c5_ab)
+        })
+
+model2_pick <- reactive({
+        switch(input$model1_select,
+               "Naive Bayes - 80/20 Validation" = pred_nb_80,
+               "Logistic Regression - 80/20 Validation" = pred_lr_80,
+               "Random Forest - 80/20 Validation" = pred_rf_80,
+               "Regression Tree - 80/20 Validation" = pred_rt_80,
+               "Naive Bayes - 10-Fold Cross Validation" = pred_nb_cv,
+               "Logistic Regression - 10-Fold Cross Validation" = pred_lr_cv,
+               "Random Forest - 10-Fold Cross Validation" = pred_rf_cv,
+               "Regression Tree - 10-Fold Cross Validation" = pred_rt_cv,
+               "Logistic Regression - Feature-Selected 10-Fold Cross Validation" = pred_lr_fs_cv,
+               "C5.0 Adaptive Boosted Decision Tree" = pred_c5_ab)
+        })
+
+renderPlot({
+        
+        model1 <- input$model1_select
+model2 <- input$model2_select
+
+pred1 <- model1_pick()
+pred2 <- model2_pick()
+
+rocr_perf1 <- performance(pred1, measure = "tpr", x.measure = "fpr")
+
+roc1_df <- data.frame(
+        
+        model = model1,
+        false_positive_rate = unlist(rocr_perf1@x.values),
+        true_positive_rate = unlist(rocr_perf1@y.values)
+        
+)
+
+rocr_perf2 <- performance(pred2, measure = "tpr", x.measure = "fpr")
+
+roc2_df <- data.frame(
+        
+        model = model2,
+        false_positive_rate = unlist(rocr_perf2@x.values),
+        true_positive_rate = unlist(rocr_perf2@y.values)
+        
+)
+
+roc_df <- bind_rows(roc1_df, roc2_df)
+
+roc_viz <- ggplot(roc_df, aes(x = false_positive_rate, y = true_positive_rate, color = model)) +
+        geom_line(size = 2) +
+        scale_color_manual(values = c("#ED8800", "#000000")) +
+        labs(title = paste0("Performance comparison of ", model1, " and\n", model2), x = "false positive rate", y = "true positive rate") +
+        theme_minimal() +
+        theme(legend.position = "bottom")
+
+roc_viz
+        
+})
+
+
+```
+
 
 
 
