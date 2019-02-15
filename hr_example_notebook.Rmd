@@ -64,6 +64,7 @@ library(survey)
 library(pscl)
 library(C50)
 library(ROCR)
+library(knitr)
 
 ```
 
@@ -956,7 +957,7 @@ Seven factors are not significant (p-value > 0.05). That leaves us with 20 facto
 The chart below shows the increase in McFadden's R with each factor added to the model. The first attribut with which we start is Age and a model that only uses Age has a McFadden's R of 0.03. This means that the model explains about 3% of the variability in the data. Not a very good model. Adding the Overtime factor to the model increases McFadden's R from 0.03 to 0.97. Simply adding the Overtime model increases the power of the model such that it explains an additional 7% of the variability in the data. The first 20 significant variables add much more to the model than the last 7 not significant variables. The first 20 factors get the model to a 0.356 McFadden's R and the remaining 7 factors only get the McFadden's R to 0.359.
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r likelihood_ratio_calc, echo=FALSE, message=FALSE, warning=FALSE, include=TRUE}
 
 feature_list <- unique(feature_select_df$factor)
 
@@ -1001,7 +1002,7 @@ names(likelihood_df) <- c("fewer_attributes_model", "more_attributes_model", "de
 
 ```
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r pseudo_r_count, include=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 
 # Pseudo R squared (McFadden's R)
 model_count <- length(feature_list)
