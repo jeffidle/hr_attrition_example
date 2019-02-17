@@ -881,8 +881,8 @@ confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = c5_c
                                       by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
 
 confusion_matrices_master_df <- confusion_matrices_master_df %>%
-        dplyr::select(predicted, actual, outcome, n_lr, pct_lr, n_lr_cv, pct_lr_cv, n_fs, pct_fs, n_nb, pct_nb, n_nb_cv, pct_nb_cv,
-                      n_rf, pct_rf, n_rf_cv, pct_rf_cv, n_rt, pct_rt, n_rt_cv, pct_rt_cv, n_c5, pct_c5)
+        dplyr::select(predicted, actual, outcome, pct_lr, pct_lr_cv, pct_fs, pct_nb, pct_nb_cv,
+                      pct_rf, pct_rf_cv, pct_rt, pct_rt_cv, pct_c5)
 
 
 # Performance metrics final comparison
@@ -890,7 +890,9 @@ confusion_matrices_master_df <- confusion_matrices_master_df %>%
 
 perf_metrics_master_df <- merge(x = perf_metrics_df, y = perf_metrics_fs_cv_lr[ , c(1:2)], by = "metric", all.x = TRUE, all.y = FALSE)
 perf_metrics_master_df <- merge(x = perf_metrics_master_df, y = c5_perf_measures_print, by = "metric", all.x = TRUE, all.y = FALSE)
-
+perf_metrics_master_df <- perf_metrics_master_df %>%
+        dplyr::select(metric, metric_result_lr, metric_result_lr_tr, metric_result_lr_fs, metric_result_nb, metric_result_nb_tr,
+                      metric_result_rf, metric_result_rf_tr, metric_result_rt, metric_result_rt_tr, metric_result_c5)
 
 
 

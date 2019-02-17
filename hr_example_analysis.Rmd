@@ -528,22 +528,17 @@ Compare all model confusion matrices here:
 
 confusion_matrices_master_df %>%
         gt(group = "algorithm") %>%
-        tab_spanner(label = md("*Logistic Regression - 80/20*"), columns = vars(n_lr, pct_lr)) %>%
-        tab_spanner(label = md("*Logistic Regression - Cross Validation*"), columns = vars(n_lr_cv, pct_lr_cv)) %>%
-        tab_spanner(label = md("*Logistic Regression - Feature Selection & Cross Validation*"), columns = vars(n_fs, pct_fs)) %>%
-        tab_spanner(label = md("*Naive Bayes - 80/20*"), columns = vars(n_nb, pct_nb)) %>%
-        tab_spanner(label = md("*Naive Bayes - Cross Validation*"), columns = vars(n_nb_cv, pct_nb_cv)) %>%
-        tab_spanner(label = md("*Random Forest - 80/20*"), columns = vars(n_rf, pct_rf)) %>%
-        tab_spanner(label = md("*Random Forest - Cross Validation*"), columns = vars(n_rf_cv, pct_rf_cv)) %>%
-        tab_spanner(label = md("*Regression Tree - 80/20*"), columns = vars(n_rt, pct_rt)) %>%
-        tab_spanner(label = md("*Regression Tree - Cross Validation*"), columns = vars(n_rt_cv, pct_rt_cv)) %>%
-        tab_spanner(label = md("*C5.0 Decision Tree - Cost Controlled Adaptive Boosting*"), columns = vars(n_c5, pct_c5)) %>%
-        cols_label(n_lr = "n", pct_lr = "%", n_lr_cv = "n", pct_lr_cv = "%", n_fs = "n", pct_fs = "%",
-                   n_nb = "n", pct_nb = "%", n_nb_cv = "n", pct_nb_cv = "%",
-                   n_rf = "n", pct_rf = "%", n_rf_cv = "n", pct_rf_cv = "%",
-                   n_rt = "n", pct_rt = "%", n_rt_cv = "n", pct_rt_cv = "%",
-                   n_c5 = "n", pct_c5 = "%") %>%
-        fmt_percent(c(5, 7, 9, 11, 13, 15, 17, 19, 21, 23), decimals = 1) %>%
+        tab_spanner(label = md("*Logistic Regression*"), columns = vars(pct_lr, pct_lr_cv, pct_fs)) %>%
+        tab_spanner(label = md("*Naive Bayes*"), columns = vars(pct_nb, pct_nb_cv)) %>%
+        tab_spanner(label = md("*Random Forest*"), columns = vars(pct_rf, pct_rf_cv)) %>%
+        tab_spanner(label = md("*Regression Tree*"), columns = vars(pct_rt, pct_rt_cv)) %>%
+        tab_spanner(label = md("*C5.0 Decision Tree*"), columns = vars(pct_c5)) %>%
+        cols_label(pct_lr = "80/20", pct_lr_cv = "Cross Validation", pct_fs = "Feature Selection & Cross Validation",
+                   pct_nb = "80/20", pct_nb_cv = "Cross Validation",
+                   pct_rf = "80/20", pct_rf_cv = "Cross Validation",
+                   pct_rt = "80/20", pct_rt_cv = "Cross Validation",
+                   pct_c5 = "Cost Controlled Adaptive Boosting") %>%
+        fmt_percent(c(4:13), decimals = 1) %>%
         tab_options(table.font.size = 12,
                     row.padding = px(1)
                     )
