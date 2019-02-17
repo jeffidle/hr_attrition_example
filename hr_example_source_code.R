@@ -667,7 +667,8 @@ feature_select_df <- feature_select_df %>%
 feature_select_df <- merge(x = feature_select_df, y = likelihood_df, by = "record_id", all.x = TRUE, all.y = FALSE)
 feature_select_df <- merge(x = feature_select_df, y = pseudo_r_df, by = "record_id", all.x = TRUE, all.y = FALSE)
 
-
+feature_select_print_df <- feature_select_df %>%
+        dplyr::select(factor, attribute_count, deviance, likelihood_p.value, mcfadden_r, -c(record_id, fewer_attributes_model, more_attributes_model))
 
 # Compare performance of 10-fold cross-validated logistic regression
 # model without feature selection to the 10-fold cross-validated logistic

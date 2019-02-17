@@ -289,8 +289,8 @@ render_gt({
 })
 
 ```
-
-
+<br>
+<br>
 # Retention Risk Scoring
 Now that we have analyzed which factors and factor levels are correlated with attrition and the direction and strength of that relationship, let's leverage that data to assist with decision-making and more focused analysis. We will develop a more fine-tuned model using machine learning techniques to predict which of our active employees may be at risk of leaving. The general process we follow to build a machine learning model is:
 
@@ -413,9 +413,11 @@ Let's start with intuitively looking at the data for highly-related variables. O
 
 ```{r include=TRUE, echo = FALSE, message=FALSE, warning=FALSE}
 
-feature_select_df %>%
+feature_select_print_df %>%
         gt(group = "significant") %>%
-        fmt_percent(3, decimals = 1) %>%
+        fmt_percent(4, decimals = 4) %>%
+        fmt_number(3, decimals = 1) %>%
+        fmt_number(5, decimals = 3) %>%
         tab_options(table.font.size = 12,
                     row.padding = px(1)
                     )
@@ -478,7 +480,7 @@ perf_metrics_lr %>%
                     )
 
 ```
-
+<br>
 
 ####C5.0 Decision Tree
 Now let's see if we can out-perform all the models we've built so far. The C5.0 decision tree model is commonly used because the default settings perform relatively well for most situations. We are going to assign cost consequences to this model. For our predictor model there are two types of errors:  1) an active employee is incorrectly predicted to be a retention risk; and 2) a retention risk employee is predicted to be a non-retention risk. We want to minimize the errors in which true retention-risk employees are classified as non-retention risk employees because we miss the opportunity to intervene before the employee leaves. If we mis-classify an active employee as a retention risk, then our loss is only the time and effort we spent trying to retain someone who did not intend to leave. We will assign greater costs to errors that mis-classify true retention risks. We will make an assumption that incorrect classifications of true retention risks are 8 times more costly than incorrect classifications of true non-retention risks. 
@@ -501,6 +503,7 @@ c5_cm_tbl_print %>%
 
 ```
 
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -516,17 +519,23 @@ c5_perf_measures_print %>%
 
 ```
 
+<br>
+
 Compare all model confusion matrices here:
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 ```
+
+<br>
 
 Compare all model performance metrics here:
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 ```
 
-All user to select two models and compare ROC curves here:
+<br>
+
+Allow user to select two models and compare ROC curves here:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -607,24 +616,28 @@ renderPlot({
         roc_viz <- ggplot(roc_df, aes(x = false_positive_rate, y = true_positive_rate, color = model)) +
                 geom_line(size = 2) +
                 scale_color_manual(values = c("#ED8800", "#000000")) +
+                geom_abline(intercept = 0, slope = 1, lty = 2, color = "#000000") +
                 labs(title = paste0("Performance comparison of ", model1, " and\n", model2), 
                      x = "false positive rate", y = "true positive rate") +
+                scale_x_continuous(limits = c(0, 1)) +
+                scale_y_continuous(limits = c(0, 1)) +
                 theme_minimal() +
                 theme(legend.position = "bottom")
         
         roc_viz
         
-})
+}, height = 600, width = 550)
 
 
 ```
-
-
-
+<br>
+<br>
 
 # Conclusion
+Conclusions to be determined.
 
-
+<br>
+<br>
 # References and Resources
 Following are the online articles and resources I used in compiling this analysis:
 
