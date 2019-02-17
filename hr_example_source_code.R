@@ -806,6 +806,94 @@ c5_perf_measures_print <- c5_perf_measures %>%
 
 
 
+
+# Confusion matrix final comparison
+############################################################################
+
+names(cm_nb_t) <- c("predicted", "actual", "n_nb_cv", "algorithm")
+
+cm_nb_cv <- cm_nb_t %>%
+        mutate(pct_nb_cv = n_nb_cv / sum(n_nb_cv, na.rm = TRUE)) %>%
+        mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, outcome, n_nb_cv, pct_nb_cv, algorithm) %>%
+        arrange(algorithm, outcome, actual, predicted)
+
+cm_nb_cv$phase <- "cross_validation"
+
+cm_nb_cv_print <- cm_nb_cv %>%
+        dplyr::select(-algorithm, -phase)
+
+names(cm_lr_t) <- c("predicted", "actual", "n_lr_cv", "algorithm")
+
+cm_lr_cv <- cm_lr_t %>%
+        mutate(pct_lr_cv = n_lr_cv / sum(n_lr_cv, na.rm = TRUE)) %>%
+        mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, outcome, n_lr_cv, pct_lr_cv, algorithm) %>%
+        arrange(algorithm, outcome, actual, predicted)
+
+cm_lr_cv$phase <- "cross_validation"
+
+cm_lr_cv_print <- cm_lr_cv %>%
+        dplyr::select(-algorithm, -phase)
+
+names(cm_rf_t) <- c("predicted", "actual", "n_rf_cv", "algorithm")
+
+cm_rf_cv <- cm_rf_t %>%
+        mutate(pct_rf_cv = n_rf_cv / sum(n_rf_cv, na.rm = TRUE)) %>%
+        mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, outcome, n_rf_cv, pct_rf_cv, algorithm) %>%
+        arrange(algorithm, outcome, actual, predicted)
+
+cm_rf_cv$phase <- "cross_validation"
+
+cm_rf_cv_print <- cm_rf_cv %>%
+        dplyr::select(-algorithm, -phase)
+
+names(cm_rt_t) <- c("predicted", "actual", "n_rt_cv", "algorithm")
+
+cm_rt_cv <- cm_rt_t %>%
+        mutate(pct_rt_cv = n_rt_cv / sum(n_rt_cv, na.rm = TRUE)) %>%
+        mutate(outcome = ifelse(actual == predicted, "correct", ifelse(actual == "active" & predicted == "termed", "false negative", ifelse(actual == "termed" & predicted == "active", "false positive", "unknown")))) %>%
+        dplyr::select(actual, predicted, outcome, n_rt_cv, pct_rt_cv, algorithm) %>%
+        arrange(algorithm, outcome, actual, predicted)
+
+cm_rt_cv$phase <- "cross_validation"
+
+cm_rt_cv_print <- cm_rt_cv %>%
+        dplyr::select(-algorithm, -phase)
+
+confusion_matrices_master_df <- merge(x = confusion_matrix_et_w, y = cm_nb_cv_print,
+                                      by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
+
+confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = cm_lr_cv_print,
+                                      by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
+
+confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = cm_cv_fs_print_lr,
+                                      by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
+
+confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = cm_rf_cv_print,
+                                      by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
+
+confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = cm_rt_cv_print,
+                                      by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
+
+confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = c5_cm_tbl_print,
+                                      by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
+
+confusion_matrices_master_df <- confusion_matrices_master_df %>%
+        dplyr::select(predicted, actual, outcome, n_lr, pct_lr, n_lr_cv, pct_lr_cv, n_fs, pct_fs, n_nb, pct_nb, n_nb_cv, pct_nb_cv,
+                      n_rf, pct_rf, n_rf_cv, pct_rf_cv, n_rt, pct_rt, n_rt_cv, pct_rt_cv, n_c5, pct_c5)
+
+
+# Performance metrics final comparison
+############################################################################
+
+perf_metrics_master_df <- merge(x = perf_metrics_df, y = perf_metrics_fs_cv_lr[ , c(1:2)], by = "metric", all.x = TRUE, all.y = FALSE)
+perf_metrics_master_df <- merge(x = perf_metrics_master_df, y = c5_perf_measures_print, by = "metric", all.x = TRUE, all.y = FALSE)
+
+
+
+
 # Generate data for ROC curve comparisons
 ############################################################################
 
@@ -830,18 +918,6 @@ pred_rf_cv <- prediction(predictions =  predicted_probs_rf_cv$termed, labels = m
 pred_rt_cv <- prediction(predictions =  predicted_probs_rt_cv$termed, labels = modeling_data_df$Attrition)
 pred_lr_fs_cv <- prediction(predictions =  predicted_probs_fs_cv_lr$termed, labels = final_model_data_df$Attrition)
 pred_c5_ab <- prediction(predictions =  c5_model_predictions_probs[ , 2], labels = test_c5_data_df$Attrition)
-
-
-
-# 
-############################################################################
-
-
-
-
-# 
-############################################################################
-
 
 
 

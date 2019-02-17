@@ -291,6 +291,7 @@ render_gt({
 ```
 <br>
 <br>
+
 # Retention Risk Scoring
 Now that we have analyzed which factors and factor levels are correlated with attrition and the direction and strength of that relationship, let's leverage that data to assist with decision-making and more focused analysis. We will develop a more fine-tuned model using machine learning techniques to predict which of our active employees may be at risk of leaving. The general process we follow to build a machine learning model is:
 
@@ -350,7 +351,7 @@ perf_metrics_et_w_df %>%
   
 
 ### Evaluate Model Performance
-First we built our model using 80% of the data available to us. This initial 80% dataset was our training dataset. We evaluated our initial model performance by applying it to the remaining 20% of our data (test data) and comparing its predicted Attrition with actual Attrition. This training and evaluation approach has some limitations because we are only using 80% of the data available to us to build the model and tested against a relatively small amount of data. We tested a second approach to building the models called cross-validation. This method ... 
+First we built our model using 80% of the data available to us. This initial 80% dataset was our training dataset. We evaluated our initial model performance by applying it to the remaining 20% of our data (test data) and comparing its predicted Attrition with actual Attrition. This training and evaluation approach has some limitations because we are only using 80% of the data available to us to build the model and tested against a relatively small amount of data. We tested a second approach to building the models called cross-validation. This method uses all of the data as both training and test data. A percentage of data is held out as a test set and tested against the remaining data--just as it is in the train/test split approach. The difference is that test set is put back in as part of the training data and another set is withheld as the test set. Each hold-out test set is called a "fold". For our purposes, we will use 10-fold cross-validation, which means that we will use 90% of the data as training data and the remaining 10% as test data and we will repeat this 10 times so that all of the data is used in one of the 10% test data "folds".  
 
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
@@ -367,6 +368,7 @@ confusion_matrix_combo %>%
 
 ```
 <br>  
+
 Two key insights jump out from comparing the 80/20 to the cross-validated models:  1) Balanced Accuracy dropped significantly for naive Bayes; and 2) random forest perfectly predicted all outcomes. 
 
 The Balanced Accuracy for the naive Bayes model has gone from 76% with the 80/20 approach to 50% with the cross-validation approach. That's because the cross-validation approach predicted that all employees would remain active--as we saw above. Later on in the model performance improvement section we will assign costs to certain error types that will adjust the model to take a more balanced approach.
@@ -524,12 +526,51 @@ c5_perf_measures_print %>%
 Compare all model confusion matrices here:
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
+confusion_matrices_master_df %>%
+        gt(group = "algorithm") %>%
+        tab_spanner(label = md("*Logistic Regression - 80/20*"), columns = vars(n_lr, pct_lr)) %>%
+        tab_spanner(label = md("*Logistic Regression - Cross Validation*"), columns = vars(n_lr_cv, pct_lr_cv)) %>%
+        tab_spanner(label = md("*Logistic Regression - Feature Selection & Cross Validation*"), columns = vars(n_fs, pct_fs)) %>%
+        tab_spanner(label = md("*Naive Bayes - 80/20*"), columns = vars(n_nb, pct_nb)) %>%
+        tab_spanner(label = md("*Naive Bayes - Cross Validation*"), columns = vars(n_nb_cv, pct_nb_cv)) %>%
+        tab_spanner(label = md("*Random Forest - 80/20*"), columns = vars(n_rf, pct_rf)) %>%
+        tab_spanner(label = md("*Random Forest - Cross Validation*"), columns = vars(n_rf_cv, pct_rf_cv)) %>%
+        tab_spanner(label = md("*Regression Tree - 80/20*"), columns = vars(n_rt, pct_rt)) %>%
+        tab_spanner(label = md("*Regression Tree - Cross Validation*"), columns = vars(n_rt_cv, pct_rt_cv)) %>%
+        tab_spanner(label = md("*C5.0 Decision Tree - Cost Controlled Adaptive Boosting*"), columns = vars(n_c5, pct_c5)) %>%
+        cols_label(n_lr = "n", pct_lr = "%", n_lr_cv = "n", pct_lr_cv = "%", n_fs = "n", pct_fs = "%",
+                   n_nb = "n", pct_nb = "%", n_nb_cv = "n", pct_nb_cv = "%",
+                   n_rf = "n", pct_rf = "%", n_rf_cv = "n", pct_rf_cv = "%",
+                   n_rt = "n", pct_rt = "%", n_rt_cv = "n", pct_rt_cv = "%",
+                   n_c5 = "n", pct_c5 = "%") %>%
+        fmt_percent(c(5, 7, 9, 11, 13, 15, 17, 19, 21, 23), decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
+
 ```
 
 <br>
 
 Compare all model performance metrics here:
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+perf_metrics_master_df %>%
+        gt() %>%
+        tab_spanner(label = md("*Logistic Regression*"), columns = vars(metric_result_lr, metric_result_lr_tr, metric_result_lr_fs)) %>%
+        tab_spanner(label = md("*Naive Bayes*"), columns = vars(metric_result_nb, metric_result_nb_tr)) %>%
+        tab_spanner(label = md("*Random Forest*"), columns = vars(metric_result_rf, metric_result_rf_tr)) %>%
+        tab_spanner(label = md("*Regression Tree*"), columns = vars(metric_result_rt, metric_result_rt_tr)) %>%
+        tab_spanner(label = md("*C5.0 Decision Tree*"), columns = vars(metric_result_c5)) %>%
+        cols_label(metric_result_lr = "80/20", metric_result_lr_tr = "Cross Validation", metric_result_lr_fs = "Feature Selection w/ Cross Validation",
+                   metric_result_nb = "80/20", metric_result_nb_tr = "Cross Validation",
+                   metric_result_rf = "80/20", metric_result_rf_tr = "Cross Validation",
+                   metric_result_rt = "80/20", metric_result_rt_tr = "Cross Validation",
+                   metric_result_c5 = "Cost Controlled Adaptive Boost") %>%
+        fmt_percent(c(2:11), decimals = 1) %>%
+        tab_options(table.font.size = 12,
+                    row.padding = px(1)
+                    )
 
 ```
 
@@ -656,8 +697,9 @@ Following are the online articles and resources I used in compiling this analysi
     * https://freakonometrics.hypotheses.org/19835
     * https://blog.datadive.net/selecting-good-features-part-iii-random-forests/
   * **Machine Learning/Predictive Modeling >>**
-      *Machine Learning with R*, (2013) by Brett Lantz
-      * https://towardsdatascience.com/train-validation-and-test-sets-72cb40cba9e7
+    * *Machine Learning with R*, (2013) by Brett Lantz
+    * *Data Science for Business*, (2013) by Foster Provost & Tom Fawcett
+    * https://towardsdatascience.com/train-validation-and-test-sets-72cb40cba9e7
     * **Naive Bayes >> ** 
       * https://www.r-bloggers.com/understanding-naive-bayes-classifier-using-r/
       * *Naive Bayes Classifier Essentials >>* http://www.sthda.com/english/articles/36-classification-methods-essentials/145-naive-bayes-classifier-essentials/
