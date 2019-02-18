@@ -33,6 +33,7 @@ library(pscl)
 library(C50)
 library(ROCR)
 library(knitr)
+library(PRROC)
 
 
 
@@ -880,9 +881,41 @@ confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = cm_r
 confusion_matrices_master_df <- merge(x = confusion_matrices_master_df, y = c5_cm_tbl_print,
                                       by = c("predicted", "actual", "outcome"), all.x = TRUE, all.y = TRUE)
 
+termed_accuracy <- confusion_matrices_master_df %>%
+        filter(actual == "termed")
+
+termed_accuracy <- termed_accuracy[ , c(1:4, 6, 8, 10, 12, 14, 16, 18, 20, 22)]
+
+termed_accuracy <- as.data.frame(t(termed_accuracy)[c(4:13), ])
+termed_accuracy$model <- row.names(termed_accuracy)
+names(termed_accuracy) <- c("incorrect", "correct", "model")
+termed_accuracy$incorrect <- as.numeric(as.character(termed_accuracy$incorrect))
+termed_accuracy$correct <- as.numeric(as.character(termed_accuracy$correct))
+
+termed_accuracy <- termed_accuracy %>%
+        mutate(total_termed = incorrect + correct,
+               pct_terms_correct = round(correct / total_termed, 2),
+               pct_terms_incorrect = round(1 - pct_terms_correct, 2))
+
 confusion_matrices_master_df <- confusion_matrices_master_df %>%
         dplyr::select(predicted, actual, outcome, pct_lr, pct_lr_cv, pct_fs, pct_nb, pct_nb_cv,
-                      pct_rf, pct_rf_cv, pct_rt, pct_rt_cv, pct_c5)
+                      pct_rf, pct_rf_cv, pct_rt, pct_rt_cv, pct_c5) %>%
+        arrange(outcome, actual, predicted)
+
+correct_df <- as.data.frame(confusion_matrices_master_df %>%
+        filter(outcome == "correct") %>%
+        dplyr::select(-c(predicted, actual, outcome)) %>%
+        colSums())
+
+correct_df$model <- row.names(correct_df)
+
+names(correct_df) <- c("pct_correct", "model")
+correct_df <- correct_df %>%
+        arrange(desc(pct_correct))
+
+correct_min <- min(correct_df[c(2:10), 1])
+correct_max <- max(correct_df[c(2:10), 1])
+correct_range <- correct_max - correct_min
 
 
 # Performance metrics final comparison
@@ -920,7 +953,6 @@ pred_rf_cv <- prediction(predictions =  predicted_probs_rf_cv$termed, labels = m
 pred_rt_cv <- prediction(predictions =  predicted_probs_rt_cv$termed, labels = modeling_data_df$Attrition)
 pred_lr_fs_cv <- prediction(predictions =  predicted_probs_fs_cv_lr$termed, labels = final_model_data_df$Attrition)
 pred_c5_ab <- prediction(predictions =  c5_model_predictions_probs[ , 2], labels = test_c5_data_df$Attrition)
-
 
 
 

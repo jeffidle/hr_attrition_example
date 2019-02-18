@@ -25,17 +25,19 @@ Our analytics team met with Shadow Run's CEO and HR VP to discuss their critical
 # Executive Summary
 Our analytics team found the following:
 
-  * **High risk levels of service >>** TBD
+  * **High risk levels of service >>** The years in which we have the highest risks of losing our employees are in years 1 and 10. Further research would need to be conducted to determine the underlying root causes. Intuitively, the root causes could be standard new hire issues like misunderstanding of what the job would be or poor fit with company culture. The year 10 drop in retention is particularly interesting because intuitive explanations do not readily come to mind.
+
   * **Voluntary turnover drivers >>** TBD
-  * **Turnover risk model >>** TBD
+
+  * **Turnover risk model >>** I tested ten models and recommend that we operationalize a feature-selected and cross-validated logistic regression model for our retention risk modeling. This model was the most accurate and provides the additional benefit of being able to explain factors that appear to be correlated with the additional risk. The accuracy of the model is expected to be in the range of X% to X% with a mean accuracy of X%.
 
 
 # Methodologies
-We utilized several methodologies in answering the business questions. Following are the methods we applied for each business question.
+I utilized several methodologies in answering the business questions. Following are the methods we applied for each business question. Following is a summary of the analytic methodologies I used in addition to descriptive analysis.
 
   * **Retention risk by years of service >>** Survival analysis
   * **Voluntary turnover drivers >>** Random forest & logistic regression
-  * **Retention risk model >>** Machine learning, logistic regression, naive Bayes, random forest & regression trees
+  * **Retention risk model >>** Machine learning, logistic regression, naive Bayes, random forest, regression trees & C5.0 decision trees.
 
 
 # Analysis
@@ -71,7 +73,7 @@ renderPlot({
 
 ```
 <br>
-<br>
+
 The drop-down below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
 
 ```{r echo = FALSE}
@@ -427,6 +429,7 @@ feature_select_print_df %>%
 ```
 <br>
 <br>
+
 Seven factors are not significant (p-value > 0.05). That leaves us with 20 factors. That's still a lot of variables to include in our model, but they could all add value. In addition, we may still want to include some of the 7 that are showing as not significant. Let's take a look at a goodness-of-fit measure for the various models we could construct with these 27 factors. We will use a pseudo R-squared measure called McFadden's R to assess the goodness of fit of the models.
 
 The chart below shows the increase in McFadden's R with each factor added to the model. The first attribut with which we start is Age and a model that only uses Age has a McFadden's R of 0.03. This means that the model explains about 3% of the variability in the data. Not a very good model. Adding the Overtime factor to the model increases McFadden's R from 0.03 to 0.97. Simply adding the Overtime model increases the power of the model such that it explains an additional 7% of the variability in the data. The first 20 significant variables add much more to the model than the last 7 not significant variables. The first 20 factors get the model to a 0.356 McFadden's R and the remaining 7 factors only get the McFadden's R to 0.359.
@@ -489,6 +492,7 @@ Now let's see if we can out-perform all the models we've built so far. The C5.0 
 
 <br>
 For this model, we will revert back to using the original 27 attributes since the decision tree model will makes its own decisions about which factors and levels are important and which are not.
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -523,7 +527,13 @@ c5_perf_measures_print %>%
 
 <br>
 
-Compare all model confusion matrices here:
+#### Model Comparison
+We have created 10 different models:  3 logistic regressions, 2 naive Bayes, 2 random forests, 2 regression trees and 1 C5.0 decision tree. When we put the confusion matrix and performance metrics for each model side-by-side we begin to get a picture of which model or models may perform the best with our data. As mentioned before, the cross-validated random forest correctly predicted 100% of the outcomes, but this model likely overfits the data and would not perform well with new data. The cross-validated naive Bayes model simply predicted all outcomes to be active since that would yield the highest accuracy. This model won't do us any good because we need to be able to predict employees who are at risk of leaving and this model wouldn't do that.
+
+If we throw out the cross-validated random forest and cross-validated naive Bayes models as an anomalies, then the range in percent of correct predictions from the worst to the best model is only a difference of 6.7%. The best model--in terms of percentage of correct predictions--is the feature-selected and cross-validated logistic regression, which correctly predicted 81.6% of the actives and 8% of the terms for a total of 89.6% correct. The worst model is the 80/20 split-trained naive Bayes model, which correctly predicted 72.3% of the actives and 10.6% of the terms for a total of 82.9% correct. The cross-validated logistic regression and C5.0 decision tree models performed well also, with 89.4% and 88.4% total correct respectively.
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 confusion_matrices_master_df %>%
@@ -547,7 +557,12 @@ confusion_matrices_master_df %>%
 
 <br>
 
-Compare all model performance metrics here:
+So far we're leaning toward the feature-selected and cross-validated logistic regression model as the model we will choose to operationalize. Before we finalize our decision, let's compare the performance metrics of the models to see if anything points us to a different model.
+
+For purposes of this example, we will look for metrics that balance across all of the metrics. Balanced accuracy and F1 are metrics that help us assess whether our model is balanced.
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 perf_metrics_master_df %>%
@@ -571,7 +586,8 @@ perf_metrics_master_df %>%
 
 <br>
 
-Allow user to select two models and compare ROC curves here:
+#### Receiver Operating Characteristics (ROC) Curve
+Receiver Operating Characteristics (ROC) curves are a popular way to visualize the performance of predictive models. You can use the selection boxes below to choose two models you would like to compare. The chart will show the respective ROC curve for each model in addition to its area under the curve (AUC). The AUC metric is a single metric that tells us how well the model predicts. AUC values closer to 1.0 are better performing models and AUC values closer to 0.5 are poorer performing models. The ROC curve shows us the percentage of false positive predictions relative to the percentage of true positives.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -637,6 +653,8 @@ renderPlot({
                 
                 )
         
+        auc_roc1 <- roc.curve(roc1_df$true_positive_rate, roc1_df$false_positive_rate)
+        
         rocr_perf2 <- performance(pred2, measure = "tpr", x.measure = "fpr")
         
         roc2_df <- data.frame(
@@ -647,18 +665,31 @@ renderPlot({
                 
                 )
         
+        auc_roc2 <- roc.curve(roc2_df$true_positive_rate, roc2_df$false_positive_rate)
+        
+        roc1_df$auc <- round(auc_roc1$auc, 3)
+        
+        roc1_df <- roc1_df %>%
+                mutate(model_label = paste0(model, " (AUC = ", auc, ")"))
+        
+        roc2_df$auc <- round(auc_roc2$auc, 3)
+
+        roc2_df <- roc2_df %>%
+                mutate(model_label = paste0(model, " (AUC = ", auc, ")"))
+        
         roc_df <- bind_rows(roc1_df, roc2_df)
         
-        roc_viz <- ggplot(roc_df, aes(x = false_positive_rate, y = true_positive_rate, color = model)) +
+        roc_viz <- ggplot(roc_df, aes(x = false_positive_rate, y = true_positive_rate, color = model_label)) +
                 geom_line(size = 2) +
                 scale_color_manual(values = c("#ED8800", "#000000")) +
                 geom_abline(intercept = 0, slope = 1, lty = 2, color = "#000000") +
-                labs(title = paste0("Performance comparison of ", model1, " and\n", model2), 
+                labs(title = paste0("Performance comparison of ", model1, " and\n", model2),
                      x = "false positive rate", y = "true positive rate") +
                 scale_x_continuous(limits = c(0, 1)) +
                 scale_y_continuous(limits = c(0, 1)) +
                 theme_minimal() +
-                theme(legend.position = "bottom")
+                theme(legend.position = c(0.65, 0.25),
+                      legend.title = element_blank())
         
         roc_viz
         
@@ -670,10 +701,11 @@ renderPlot({
 <br>
 
 # Conclusion
-Conclusions to be determined.
+This analysis is intended to be illustrative of the interactive capabilities of R Markdown. I used an attrition analysis example based on a simple, publicly available 1,400 row by 35 column spreadsheet of data. I leveraged several analysis and modeling techniques to show how interactive R Markdown can be helpful for both exploratory and explanatory analyses. This analysis is not guaranteed to be error-free and is not an exhaustive or complete analysis. I hope you've found value in this analysis and that it has given you ideas that you'd like to apply to your own work and projects. I'd be very interested to hear whether this example has helped you--feel free to e-mail me at <jidle1975@gmail.com>. Check out the references at the end of this analysis--I've listed some excellent books and online articles that you may want to explore further. Best wishes in your interactive R Markdown endeavors!
 
 <br>
 <br>
+
 # References and Resources
 Following are the online articles and resources I used in compiling this analysis:
 
@@ -683,6 +715,8 @@ Following are the online articles and resources I used in compiling this analysi
   * **Interactive Shiny documents >>**
     * https://bookdown.org/yihui/rmarkdown/shiny-documents.html
     * https://rmarkdown.rstudio.com/lesson-14.html
+  * **Data visualization >>**
+    * *Data visualization: A Practical Introduction*, (2018) by Kieran Healy, https://socviz.co/index.html#preface
   * **Survival analysis >>** https://www.datacamp.com/community/tutorials/survival-analysis-R
   * **Feature selection >>** 
     * https://www.r-bloggers.com/feature-selection-using-the-caret-package/
