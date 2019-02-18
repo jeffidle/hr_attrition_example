@@ -1,35 +1,39 @@
 ---
 title: "Example HR research using interactive R Markdown"
-date: "February 4, 2019"
+date: "February 18, 2019"
 author: "Jeff Idle"
 output: html_notebook
-runtime: shiny
+runtime: shiny_prerendered
 editor_options: 
   chunk_output_type: inline
 ---
 
 # Purpose and Background
-The purpose of this analysis is to showcase the capabilities of interactive R Markdown documents. R Markdown documents are great for integrating analysis with visualizations. Interactive R Markdown documents provide a better way to engage your stakeholders and let them explore your analysis further. IBM posted a sample Human Resources Employee Attrition and Performance dataset on their [Watson Analytics Community web site](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/). The imaginary stakeholders for this example analysis will be the CEO and HR VP for a fictional medium-sized company. Our fictional company researches and designs productivity and entertainment peripherals that can be biologically integrated with the human body and connect to the IoT (Internet of Things). Our fictional company is called "Shadowrun, Inc.". The dataset does not contain hire dates or termination dates, so for purposes of this analysis we will assume all of the attrition in our dataset represents voluntary turnover for the last five years. The source code for this analysis can be found on Github at https://github.com/jeffidle/hr_attrition_example.
+The purpose of this analysis is to showcase the capabilities of interactive R Markdown documents. R Markdown documents are great for integrating analysis with visualizations. Interactive R Markdown documents provide a better way to engage your stakeholders and let them explore your analysis further. IBM posted a sample Human Resources Employee Attrition and Performance dataset on their [Watson Analytics Community web site](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/). The imaginary stakeholders for this example analysis will be the CEO and HR VP for a fictional medium-sized company that we will call ACME. The dataset does not contain hire dates or termination dates, so for purposes of this analysis we will assume all of the attrition in our dataset represents voluntary turnover for the last five years. The source code for this analysis can be found on Github at https://github.com/jeffidle/hr_attrition_example.
 
 **NOTE:**  Please note that this analysis is an example for illustrative purposes only. As such, this analysis is not guaranteed to be error-free or copied without further analysis and modifications to fit the situation to which it is being applied. 
 
 
 # Business Questions
-Our analytics team met with Shadow Run's CEO and HR VP to discuss their critical workforce planning and management questions. They identified and prioritized research into the following three questions:
+I met with ACME's CEO and HR VP to discuss their critical workforce planning and management questions. They identified and prioritized research into the following three questions:
 
   1. At what levels of service with the company do we have the greatest risk of losing employees?
-  2. What are the key drivers of Shadow Run's turnover?
+  2. What are the key drivers of ACME's turnover?
   3. Can we develop a model to predict the risk of losing our currently active employees?
 
 
 # Executive Summary
-Our analytics team found the following:
+The following insights are relevant to the CEO and HR VP's questions:
 
   * **High risk levels of service >>** The years in which we have the highest risks of losing our employees are in years 1 and 10. Further research would need to be conducted to determine the underlying root causes. Intuitively, the root causes could be standard new hire issues like misunderstanding of what the job would be or poor fit with company culture. The year 10 drop in retention is particularly interesting because intuitive explanations do not readily come to mind.
 
-  * **Voluntary turnover drivers >>** TBD
+  * **Voluntary turnover drivers >>** My first-pass analysis uncovered the following drivers of voluntary turnover:  1) annual wages; 2) age; 3) overtime; 4) years of service; 5) distance from home; and 6) job. My second-pass analysis uncovered more specifics:
+    * Employees in Sales Representative, Lab Technician, Human Resources, Sales Executive and Research Scientist jobs have a higher risk of leaving than other jobs.
+    * Employees working overtime have a greater risk of voluntarily leaving.
+    * Age and distance from home are not meaningfully significant drivers of voluntary turnover. Voluntary turnover risk decreases slightly as age increases and increases slightly as distance from home increases.
+    * When controlling for other factors, annual wages and years of service are not statitically significant drivers.
 
-  * **Turnover risk model >>** I tested ten models and recommend that we operationalize a feature-selected and cross-validated logistic regression model for our retention risk modeling. This model was the most accurate and provides the additional benefit of being able to explain factors that appear to be correlated with the additional risk. The accuracy of the model is expected to be in the range of X% to X% with a mean accuracy of X%.
+  * **Turnover risk model >>** I tested ten models and recommend that we operationalize a feature-selected and cross-validated logistic regression model for our retention risk modeling. This model was the most accurate and provides the additional benefit of being able to explain factors that appear to be correlated with the additional risk. The accuracy of the model is expected to be in the range of 87.9% to 91.1% with a mean accuracy of 89.6%. With ACME's current employee data, this model "incorrectly" classified 33 active employees as "terminated". Although those employees are still active, the model has identified these employees as terminated because they exhibit the traits and characteristics associated with those who leave the company. I recommend that these 33 employees be studied further to determine whether actions should be taken to reduce our retention risk for those employees. 
 
 
 # Methodologies
@@ -37,23 +41,23 @@ I utilized several methodologies in answering the business questions. Following 
 
   * **Retention risk by years of service >>** Survival analysis
   * **Voluntary turnover drivers >>** Random forest & logistic regression
-  * **Retention risk model >>** Machine learning, logistic regression, naive Bayes, random forest, regression trees & C5.0 decision trees.
+  * **Retention risk model >>** Machine learning, logistic regression, naive Bayes, random forest, regression trees & C5.0 decision trees
 
 
 # Analysis
-The analysis that follows will start with exploratory analyses to understand the data. We will then analyze the data to answer the question about years of service where retention risk is greatest. Next we will analyze the key drivers that are highly correlated with turnover during the last 5 years. Finally, we will create a predictive model that enables us to assess the risk of losing our currently active employees and estimate the risk of losing any new employees that join the organization.
+The analysis that follows starts with exploratory analyses to understand the data. I will then analyze the data to answer the question about years of service where retention risk is greatest. Next I will analyze the key drivers that are highly correlated with turnover during the last 5 years. Finally, I will create a predictive model that enables us to assess the risk of losing our currently active employees and estimate the risk of losing any new employees that join the organization.
 
 
 #### Exploratory analysis
 The starting point for every analysis is to become familiar with the data. You can view the raw data [here](https://github.com/jeffidle/hr_attrition_example/blob/master/data/ibm_attrition.csv) but let's take a look at a summarized view of the data. 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 source("hr_example_source_code.R")
 
 ```
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 data_summary_df %>% gt() %>%
         tab_options(table.font.size = 10,
@@ -63,9 +67,9 @@ data_summary_df %>% gt() %>%
 ```
 <br>
 <br>
-Let's visualize the data. We would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
+Let's visualize the data. I would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 renderPlot({
   term_dist_viz
@@ -74,9 +78,9 @@ renderPlot({
 ```
 <br>
 
-The drop-down below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
+The drop-down box below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
 
-```{r echo = FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 selectInput(inputId = "explore_dim", label = "Choose the variable that you would like to explore:",
             choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
@@ -135,13 +139,13 @@ renderPlot({
 
 
 #### Retention Risk by Years of Service
-Understanding whether there are years throughout an employee's tenure in which retention risk is highest can help Shadowrun create focused and targeted retention programs. Targeted programs should be more effective than one-size-fits-all programs because targeted programs are tailored to the specific needs of the population at risk. By leveraging the survival analysis methodology in the context of employee attrition, we can assess the average drop in retention probability for each year of service to identify those years in which retention risk is greatest.
+Understanding whether there are years throughout an employee's tenure in which retention risk is highest can help ACME create focused and targeted retention programs. Targeted programs should be more effective than one-size-fits-all programs because targeted programs are tailored to the specific needs of the population at risk. By leveraging the survival analysis methodology in the context of employee attrition, we can assess the average drop in retention probability for each year of service to identify those years in which retention risk is greatest.
 
-The chart on the left shows how the probability of retaining Shadowrun employees drops as tenure increases. This is expected to some extent--everyone will retire someday and that is part of voluntary termination. If all Shadowrun employees were hired directly from high school or college and stayed until they retired, then the "survival curve" would bow outward to the right. If employees were leaving within relatively short periods of time, then the "survival curve" would bow inward to the left. Shadowrun's curve bows outward to the right, which tells us that our employees tend to stay with us. In fact, our employees have a 25% probability of staying with us for 15 years and 40% probability of staying with us for 31 years. The first half of the curve is generally smooth, which tells us there isn't a lot of year-over-year variation. The jagged portions at the end of the curve exist simply because there is a very small population of employees at those tenure levels. 
+The chart on the left shows how the probability of retaining ACME employees drops as tenure increases. This is expected to some extent--everyone will retire someday and that is part of voluntary termination. If all ACME employees were hired directly from high school or college and stayed until they retired, then the "survival curve" would bow outward to the right. If employees were leaving within relatively short periods of time, then the "survival curve" would bow inward to the left. ACME's curve bows outward to the right, which tells us that our employees tend to stay with us. In fact, our employees have a 25% probability of staying with us for 15 years and 40% probability of staying with us for 31 years. The first half of the curve is generally smooth, which tells us there isn't a lot of year-over-year variation. The jagged portions at the end of the curve exist simply because there is a very small population of employees at those tenure levels. 
 
-The chart on the right shows the average reduction in retention probability for each year of service. This chart focuses on the first 20 years since that constitutes the bulk of our workforce. The overall average decrease in retention probability for each year of service is 1.4% if we exclude the outlier in year 40. We can see in years 1 and 10 that the decrease is around 4%--nearly 3x the average. We should work with Shadowrun's HR Business Partners to better understand what might be going on in these years. The first year spike is not unexpected and may be due to onboarding, poor culutural fit, or other factors common to employees accepting a new job at a new company. The tenth-year spike, however, is unusual and should be investigated further.
+The chart on the right shows the average reduction in retention probability for each year of service. This chart focuses on the first 20 years since that constitutes the bulk of our workforce. The overall average decrease in retention probability for each year of service is 1.4% if I exclude the outlier in year 40. You can see in years 1 and 10 that the decrease is around 4%--nearly 3x the average. I should work with ACME's HR Business Partners to better understand what might be going on in these years. The first year spike is not unexpected and may be due to onboarding, poor culutural fit, or other factors common to employees accepting a new job at a new company. The tenth-year spike, however, is unusual and should be investigated further.
 
-```{r echo = FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 renderPlot({
   grid.arrange(survival_viz, risk_viz, ncol = 2)
@@ -149,10 +153,10 @@ renderPlot({
 
 ```
 <br>
-<br>
-Overall, we don't have major concerns about retention risk by tenure, but we should investigate the spikes in years 1 and 10. We would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What we don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
 
-```{r echo = FALSE}
+Overall, I don't have major concerns about retention risk by tenure, but I should investigate the spikes in years 1 and 10. I would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What I don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down box below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 selectInput(inputId = "survival_slice", label = "Choose the dimension by which you'd like to slice the retention analysis:", 
   choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
@@ -223,13 +227,13 @@ renderPlot({
 
 #### Driver Analysis
 
-Understanding the factors that are more highly correlated with attrition can help us investigate root causes and develop programs, policies or processes to address those root causes. Note that **correlation is not causation**. If we find correlations between a factor and attrition, we know that there is a relationship *but we don't know why* there is a relationship. For example, if there is a high correlation between lower Employee Satisfaction Survey scores and attrition, then we know that employees who leave may tend to have lower Employee Satisfaction Survey scores, but we don't know specifically why the employees left. The reasons could vary widely and require further root cause investigation.
+Understanding the factors that are more highly correlated with attrition can help ACME investigate root causes and develop programs, policies or processes to address those root causes. Note that **correlation is not causation**. If we find correlations between a factor and attrition, we know that there is a relationship *but we don't know why* there is a relationship. For example, if there is a high correlation between lower Employee Satisfaction Survey scores and attrition, then we know that employees who leave may tend to have lower Employee Satisfaction Survey scores, but we don't know specifically why the employees left. The reasons could vary widely and require further root cause investigation.
 
-We will apply a two-step process to find the drivers of Shadowrun's attrition. We will apply an initial first-pass methodology to determine which factors may be the most important. We will then apply a second-pass methodology to determine which levels within each factor are the most significant drivers of attrition. For example, our first pass may find that the Job Description is an important factor. Knowing that the employee's job is a factor in attrition is important, but it is not helpful unless we know which jobs have the greatest impact on attrition.
+I will apply a two-step process to find the drivers of ACME's attrition. I will apply an initial first-pass methodology to determine which factors may be the most important. I will then apply a second-pass methodology to determine which levels within each factor are the most significant drivers of attrition. For example, my first pass may find that the Job Description is an important factor. Knowing that the employee's job is a factor in attrition is important, but it is not helpful unless we know which jobs have the greatest impact on attrition.
 
 The factor importance chart below show us the relative importance of all of the factors in our dataset. This first pass applies a random forest algorithm to compute the relative importance of each factor. Note that you will get different results depending on the algorithm or method you choose.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 renderPlot({
         
@@ -239,10 +243,10 @@ renderPlot({
 
 ```
 <br>
-<br>
-Now that we know the relative importance of each factor, the next step is to decide which factors to include in our model. The drop-down below allows you to select the Importance threshold for those factors you want to include in the model. After you choose your desired threshold, we apply the second-pass step of including the selected factors in a logistic regression model. The output table that you will see when you select your threshold includes the output from the model. The coefficient column tells us whether the relationship between that factor level and attrition is positive or negative and the degree to which they are related. Values at or near zero have very little influence on attrition. The p-value column tells us whether the relationship is significant. For purposes of our analysis we will use a significance level of 0.05 (p <= 0.5) but it is important to note that there are [debates in the scientific community](https://www.nature.com/articles/s41562-017-0189-z) swelling around the appropriate significance level to use. 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+Now that I know the relative importance of each factor, the next step is to decide which factors to include in our model. The drop-down box below allows you to select the Importance threshold for those factors you want to include in the model. After you choose your desired threshold, I apply the second-pass step of including the selected factors in a logistic regression model. The output table that you will see when you select your threshold includes the output from the model. The coefficient column tells us whether the relationship between that factor level and attrition is positive or negative and the degree to which they are related. Values at or near zero have very little influence on attrition. The p-value column tells us whether the relationship is significant. For purposes of our analysis we will use a significance level of 0.05 (p <= 0.5) but it is important to note that there are [debates in the scientific community](https://www.nature.com/articles/s41562-017-0189-z) swelling around the appropriate significance level to use. 
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 # Set Gini index cutoff
 
@@ -295,7 +299,7 @@ render_gt({
 <br>
 
 # Retention Risk Scoring
-Now that we have analyzed which factors and factor levels are correlated with attrition and the direction and strength of that relationship, let's leverage that data to assist with decision-making and more focused analysis. We will develop a more fine-tuned model using machine learning techniques to predict which of our active employees may be at risk of leaving. The general process we follow to build a machine learning model is:
+Now that I have analyzed which factors and factor levels are correlated with attrition and the direction and strength of that relationship, let's leverage that data to assist with decision-making and more focused analysis. I will develop a more fine-tuned model using machine learning techniques to predict which of our active employees may be at risk of leaving. The general process we follow to build a machine learning model is:
 
   1. data collection;
   2. data preparation;
@@ -306,14 +310,14 @@ Now that we have analyzed which factors and factor levels are correlated with at
 
 ### Data Collection and Preparation
 
-We have already completed a large portion of data collection and preparation for the previous analyses. A data collection and preparation and processing step that is unique to machine learning is to split data into "training" and "test" datasets. The training dataset is used to build the model and the test dataset is used to evaluate the accuracy and precision of the model. The split is usually a percentage split with the larger percentage being put in the training dataset and the smaller percentage put into the test dataset. Common splits are 70%/30% and 80%/20%. We will use an 80/20 split for our analysis.
+I have already completed a large portion of data collection and preparation for the previous analyses. A data collection and preparation step that is unique to machine learning is to split data into "training" and "test" datasets. The training dataset is used to build the model and the test dataset is used to evaluate the accuracy and precision of the model. The split is usually a percentage split with the larger percentage being put in the training dataset and the smaller percentage put into the test dataset. Common splits are 70%/30% and 80%/20%. I will use an 80/20 split for our analysis.
 
 
 ### Build and Train Models
 
-When building a machine learning model, it can be beneficial to try a few different algorithms and compare their performance. For purposes of this illustration, we will build models using the naive Bayes, logistic regression, decision tree and random forest algorithms. We will not discuss these algorithms in detail. A confusion matrix is an important tool in helping assess the performance of a model. Several metrics can be generated from a confusion matrix. These metrics help us decide whether the model or models will work for our purposes. Following are the confusion matrices for each of the models we created.
+When building a machine learning model, it can be beneficial to try a few different algorithms and compare their performance. For purposes of this illustration, I will build models using the naive Bayes, logistic regression, random forest and regression tree algorithms. I will not discuss these algorithms in detail. A confusion matrix is an important tool in helping assess the performance of a model. Several metrics can be generated from a confusion matrix. These metrics help us decide whether the model or models will work for our purposes. Following are the confusion matrices for each of the models we created.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 confusion_matrix_et_w %>%
         gt() %>%
@@ -336,7 +340,7 @@ confusion_matrix_et_w %>%
 Following are the metrics derived from the confusion matrices. Different metrics will have different levels of importance depending on the business problem at hand. 
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 perf_metrics_et_w_df %>%
         gt() %>%
@@ -353,10 +357,10 @@ perf_metrics_et_w_df %>%
   
 
 ### Evaluate Model Performance
-First we built our model using 80% of the data available to us. This initial 80% dataset was our training dataset. We evaluated our initial model performance by applying it to the remaining 20% of our data (test data) and comparing its predicted Attrition with actual Attrition. This training and evaluation approach has some limitations because we are only using 80% of the data available to us to build the model and tested against a relatively small amount of data. We tested a second approach to building the models called cross-validation. This method uses all of the data as both training and test data. A percentage of data is held out as a test set and tested against the remaining data--just as it is in the train/test split approach. The difference is that test set is put back in as part of the training data and another set is withheld as the test set. Each hold-out test set is called a "fold". For our purposes, we will use 10-fold cross-validation, which means that we will use 90% of the data as training data and the remaining 10% as test data and we will repeat this 10 times so that all of the data is used in one of the 10% test data "folds".  
+First I built a model using 80% of the data available. This initial 80% dataset was my training dataset. I evaluated the initial model performance by applying it to the remaining 20% of the data (test data) and comparing its predicted Attrition with actual Attrition. This training and evaluation approach has some limitations because I am only using 80% of the data available to build the model and test it against a relatively small amount of data. I tested a second approach to building the models called cross-validation. This method uses all of the data as both training and test data. A percentage of data is held out as a test set and tested against the remaining data--just as it is in the train/test split approach. The difference is that test set is put back in as part of the training data and another set is withheld as the test set. Each hold-out test set is called a "fold". I will use 10-fold cross-validation, which means that I will use 90% of the data as training data and the remaining 10% as test data. I will repeat this 10 times so that all of the data is used in one of the 10% test data "folds".  
 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 confusion_matrix_combo %>%
         gt(group = "algorithm") %>%
@@ -378,7 +382,7 @@ The Balanced Accuracy for the naive Bayes model has gone from 76% with the 80/20
 The cross-validated random forest perfectly predicted the outcomes--shouldn't we just use that model? No. This simply means that the random forest found a way to perfectly learn our data and is over-fitted to the data it learned. The model would likely not perform well on data from which it had not learned. Rather than doing a cross-validation on the entire dataset, we should probably cross-validate on an 80% sample and test the model against the remaining 20%. That would give us a better understanding of how the model would perform on data it hasn't seen before.
 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 perf_metrics_df %>%
         gt() %>%
@@ -399,7 +403,7 @@ perf_metrics_df %>%
 
 
 ### Improve Model Performance
-In this section, we will select one model and performance tune it. For an actual project, analysts would be wise to performance tune all reasonably feasible models. This analysis will not go into ensemble modeling, but blending of models would fall within the scope of improving model performance.
+In this section, I will select one model and performance tune it. For an actual project, analysts would be wise to performance tune all reasonably feasible models. This analysis will not go into "ensemble modeling" in which models are blended to improve performance, but model blending is a step that should be utilized to improve model performance when prediction accuracy is the top priority.
 
 So far the best model seems to be the cross-validated logistic regression model because it:  
 
@@ -407,15 +411,15 @@ So far the best model seems to be the cross-validated logistic regression model 
   2. has the highest balanced accuracy; and
   3. has one of the lowest accuracy p-values.
   
-Let's try two more approaches to see if we can get better performance. First, all the models we've built so far used all the features in our dataset. We know that some of the features are not significant and some of the features could have multi-colinearity (they could be measuring the same or similar things). Therefore, let's implement feature selection and assessing "goodness-of-fit" measures to try to determine the optimal number of features to include in our cross-validated logistic regression model. 
+Let's try two more approaches to see if we can get better performance. First, all the models I've built so far used all the features in the dataset. I know that some of the features are not significant and some of the features could have multi-collinearity (they could be measuring the same or similar things). Therefore, let's implement feature selection and assessing "goodness-of-fit" measures to try to determine the optimal number of features to include in our cross-validated logistic regression model. 
 
-Finally, let's try a new model--the C5.0 decision tree. This model will allow us to set cost consequences. These cost assumptions help our model understand whether certain incorrect predictions are more costly than other incorrect predictions. Imagine that we are applying our model to our currently active employee population to find areas of retentionn risk. If we incorrectly predict that an active employee is going to leave when they in fact are not a retention risk, then perhaps we've spent time and resources to retain someone whom we were not going to lose. But the more expensive incorrect prediction is when an employee is a retention risk and we did not predict them as such. The employee will leave the company and we missed the opportunity to retain her or him--not to mention incurred the costs associated with that employee's turnover. We can set up a cost structure for correct and incorrect predictions such that the model will try to optimize predictions for the highest-cost area, which is to correctly identify employees at risk for our project.
+Finally, let's try a new model--the C5.0 decision tree. This model will allow me to set cost consequences. These cost assumptions help the model understand whether certain incorrect predictions are more costly than other incorrect predictions. Imagine that we are applying our model to our currently active employee population to find areas of retentionn risk. If we incorrectly predict that an active employee is going to leave when they in fact are not a retention risk, then perhaps we've spent time and resources to retain someone whom we were not going to lose. But the more expensive incorrect prediction is when an employee is a retention risk and we did not predict them as such. The employee will leave the company and we missed the opportunity to retain her or him--not to mention incurred the costs associated with that employee's turnover. We can set up a cost structure for correct and incorrect predictions such that the model will try to optimize predictions for the highest-cost area, which is to correctly identify employees at risk for our project.
 
 
 ####Feature Selection
 Let's start with intuitively looking at the data for highly-related variables. Our dataset includes columns for the employee's Hourly Rate, Daily Rate, Monthly Rate and Monthly Income. These four variables all measure the same factor--the employee's income. All of the employees in this dataset have the same Standard Hours, so we can use the same formula to calculate their Annual Wages. We will create a single variable called Annual Wages that multiplies their monthly income by 12, then remove these four variables from our dataset. We will then run a random forest algorithm to calculate the importance of each factor and will use the Wald test to assess statical significance of each factor.
 
-```{r include=TRUE, echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 feature_select_print_df %>%
         gt(group = "significant") %>%
@@ -430,12 +434,12 @@ feature_select_print_df %>%
 <br>
 <br>
 
-Seven factors are not significant (p-value > 0.05). That leaves us with 20 factors. That's still a lot of variables to include in our model, but they could all add value. In addition, we may still want to include some of the 7 that are showing as not significant. Let's take a look at a goodness-of-fit measure for the various models we could construct with these 27 factors. We will use a pseudo R-squared measure called McFadden's R to assess the goodness of fit of the models.
+Seven factors are not statistically significant (p-value > 0.05). That leaves us with 20 factors. That's still a lot of variables to include in our model, but they could all add value. In addition, we may still want to include some of the 7 that are showing as not significant. Let's take a look at a goodness-of-fit measure for the various models we could construct with these 27 factors. We will use a pseudo R-squared measure called McFadden's R to assess the goodness of fit of the models.
 
-The chart below shows the increase in McFadden's R with each factor added to the model. The first attribut with which we start is Age and a model that only uses Age has a McFadden's R of 0.03. This means that the model explains about 3% of the variability in the data. Not a very good model. Adding the Overtime factor to the model increases McFadden's R from 0.03 to 0.97. Simply adding the Overtime model increases the power of the model such that it explains an additional 7% of the variability in the data. The first 20 significant variables add much more to the model than the last 7 not significant variables. The first 20 factors get the model to a 0.356 McFadden's R and the remaining 7 factors only get the McFadden's R to 0.359.
+The chart below shows the increase in McFadden's R with each factor added to the model. The first attribute with which I start is Age and a model that only uses Age has a McFadden's R of 0.03. This means that the model explains about 3% of the variability in the data. Not a very good model. Adding the Overtime factor to the model increases McFadden's R from 0.03 to 0.97. Simply adding the Overtime model increases the power of the model such that it explains an additional 7% of the variability in the data. The first 20 significant variables add much more to the model than the last 7 not significant variables. The first 20 factors get the model to a 0.356 McFadden's R and the remaining 7 factors only get the McFadden's R to 0.359.
 <br>
 
-```{r pseudo_r_calc, include=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 renderPlot({
 
@@ -450,10 +454,10 @@ renderPlot({
 
 ```
 
-Given the preceding analysis, we will use the 20 significant variables in our model and drop the remaining 7 non-significant variables. As you can see in the following tables, performance has improved slightly by dropping those 7 non-significant variables. Balanced accuracy has improved by 0.4%--every little bit counts! Given that we gain slightly in performance with a model that is less complex (20 attributes versus 27), it's worth the effort to reduce the features of the model.
+Given the preceding analysis, I will use the 20 significant variables in the model and drop the remaining 7 non-significant variables. As you can see in the following tables, performance has improved slightly by dropping those 7 non-significant variables. Balanced accuracy has improved by 0.4%--every little bit counts! Given that we gain slightly in performance with a model that is less complex (20 attributes versus 27), it's worth the effort to reduce the features of the model.
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r  echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 cm_lr_compare %>%
         gt() %>%
@@ -471,7 +475,7 @@ cm_lr_compare %>%
 ```
 <br>
 <br>
-```{r echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 perf_metrics_lr %>%
         gt() %>%
@@ -488,13 +492,13 @@ perf_metrics_lr %>%
 <br>
 
 ####C5.0 Decision Tree
-Now let's see if we can out-perform all the models we've built so far. The C5.0 decision tree model is commonly used because the default settings perform relatively well for most situations. We are going to assign cost consequences to this model. For our predictor model there are two types of errors:  1) an active employee is incorrectly predicted to be a retention risk; and 2) a retention risk employee is predicted to be a non-retention risk. We want to minimize the errors in which true retention-risk employees are classified as non-retention risk employees because we miss the opportunity to intervene before the employee leaves. If we mis-classify an active employee as a retention risk, then our loss is only the time and effort we spent trying to retain someone who did not intend to leave. We will assign greater costs to errors that mis-classify true retention risks. We will make an assumption that incorrect classifications of true retention risks are 8 times more costly than incorrect classifications of true non-retention risks. 
+Now let's see if I can out-perform all the models I've built so far. The C5.0 decision tree model is commonly used because the default settings perform relatively well for most situations. I am going to assign cost consequences to this model. For my predictor model there are two types of errors:  1) an active employee is incorrectly predicted to be a retention risk; and 2) a retention risk employee is predicted to be a non-retention risk. I want to minimize the errors in which true retention-risk employees are classified as non-retention risk employees because we miss the opportunity to intervene before the employee leaves. If we mis-classify an active employee as a retention risk, then our loss is only the time and effort we spent trying to retain someone who did not intend to leave. We will assign greater costs to errors that mis-classify true retention risks. I will assign a mis-classification cost of 8 to our model. 
 
 <br>
-For this model, we will revert back to using the original 27 attributes since the decision tree model will makes its own decisions about which factors and levels are important and which are not.
+For this model I will revert back to using the original 27 attributes since the decision tree model will make its own decisions about which factors and levels are important and which are not.
 <br>
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 c5_cm_tbl_print %>%
         gt() %>% 
@@ -511,7 +515,7 @@ c5_cm_tbl_print %>%
 
 <br>
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 c5_perf_measures_print %>%
         gt() %>%
@@ -528,13 +532,13 @@ c5_perf_measures_print %>%
 <br>
 
 #### Model Comparison
-We have created 10 different models:  3 logistic regressions, 2 naive Bayes, 2 random forests, 2 regression trees and 1 C5.0 decision tree. When we put the confusion matrix and performance metrics for each model side-by-side we begin to get a picture of which model or models may perform the best with our data. As mentioned before, the cross-validated random forest correctly predicted 100% of the outcomes, but this model likely overfits the data and would not perform well with new data. The cross-validated naive Bayes model simply predicted all outcomes to be active since that would yield the highest accuracy. This model won't do us any good because we need to be able to predict employees who are at risk of leaving and this model wouldn't do that.
+I have created 10 different models:  3 logistic regressions, 2 naive Bayes, 2 random forests, 2 regression trees and 1 C5.0 decision tree. When I put the confusion matrix and performance metrics for each model side-by-side we begin to get a picture of which model or models may perform the best with our data. As mentioned before, the cross-validated random forest correctly predicted 100% of the outcomes, but this model likely overfits the data and would not perform well with new data. The cross-validated naive Bayes model simply predicted all outcomes to be active since that would yield the highest accuracy. This model won't do us any good because we need to be able to predict employees who are at risk of leaving and this model wouldn't do that.
 
-If we throw out the cross-validated random forest and cross-validated naive Bayes models as an anomalies, then the range in percent of correct predictions from the worst to the best model is only a difference of 6.7%. The best model--in terms of percentage of correct predictions--is the feature-selected and cross-validated logistic regression, which correctly predicted 81.6% of the actives and 8% of the terms for a total of 89.6% correct. The worst model is the 80/20 split-trained naive Bayes model, which correctly predicted 72.3% of the actives and 10.6% of the terms for a total of 82.9% correct. The cross-validated logistic regression and C5.0 decision tree models performed well also, with 89.4% and 88.4% total correct respectively.
+If I throw out the cross-validated random forest and cross-validated naive Bayes models as an anomalies, then the range in percent of correct predictions from the worst to the best model is only a difference of 6.7%. The best model--in terms of percentage of correct predictions--is the feature-selected and cross-validated logistic regression, which correctly predicted 81.6% of the actives and 8% of the terms for a total of 89.6% correct. The worst model is the 80/20 split-trained naive Bayes model, which correctly predicted 72.3% of the actives and 10.6% of the terms for a total of 82.9% correct. The cross-validated logistic regression and C5.0 decision tree models performed well also, with 89.4% and 88.4% total correct respectively.
 
 <br>
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 confusion_matrices_master_df %>%
         gt(group = "algorithm") %>%
@@ -557,13 +561,13 @@ confusion_matrices_master_df %>%
 
 <br>
 
-So far we're leaning toward the feature-selected and cross-validated logistic regression model as the model we will choose to operationalize. Before we finalize our decision, let's compare the performance metrics of the models to see if anything points us to a different model.
+So far I'm leaning toward the feature-selected and cross-validated logistic regression model as the model I will choose to operationalize. Before I finalize my recommendation, let's compare the performance metrics of the models to see if anything points us to a different model.
 
-For purposes of this example, we will look for metrics that balance across all of the metrics. Balanced accuracy and F1 are metrics that help us assess whether our model is balanced.
+For purposes of this example, I will look for metrics that balance across all of the metrics. Balanced accuracy and F1 are metrics that help us assess whether our model is balanced.
 
 <br>
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 perf_metrics_master_df %>%
         gt() %>%
@@ -589,7 +593,7 @@ perf_metrics_master_df %>%
 #### Receiver Operating Characteristics (ROC) Curve
 Receiver Operating Characteristics (ROC) curves are a popular way to visualize the performance of predictive models. You can use the selection boxes below to choose two models you would like to compare. The chart will show the respective ROC curve for each model in addition to its area under the curve (AUC). The AUC metric is a single metric that tells us how well the model predicts. AUC values closer to 1.0 are better performing models and AUC values closer to 0.5 are poorer performing models. The ROC curve shows us the percentage of false positive predictions relative to the percentage of true positives.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
 
 selectInput(inputId = "model1_select", label = "Select the first model you'd like to compare:  ",
             choices = c("Logistic Regression - 80/20 Validation", "Naive Bayes - 80/20 Validation",
@@ -746,6 +750,7 @@ Following are the online articles and resources I used in compiling this analysi
     * **caret >>**
       * https://cran.r-project.org/web/packages/caret/vignettes/caret.html
       * http://www.rebeccabarter.com/blog/2017-11-17-caret_tutorial/
+    * **performance tuning >>** https://rmarkdown.rstudio.com/authoring_shiny_prerendered.html
 
 
 

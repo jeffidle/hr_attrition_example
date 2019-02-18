@@ -1,0 +1,12 @@
+name: hr_example_analysis
+title: hr_example_analysis
+username:
+account: jeff-idle
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 723172
+bundleId: 1881805
+url: https://jeff-idle.shinyapps.io/hr_example_analysis/
+when: 1550477698.29628
+asMultiple: FALSE
+asStatic: FALSE

@@ -13,6 +13,7 @@
 
 library(tidyverse)
 library(shiny)
+library(rmarkdown)
 library(survival)
 library(survminer)
 library(ggfortify)
@@ -260,6 +261,10 @@ driver_data_df <- attrition_data_df
 
 # Remove StandardHours and Over18 since there is no variation and remove Attrition since it is redundant
 driver_data_df <- driver_data_df[ , -c(10, 13, 29)]
+
+driver_data_df <- driver_data_df %>%
+        mutate(AnnualWages = MonthlyIncome * 12) %>%
+        dplyr::select(-HourlyRate, -DailyRate, - MonthlyRate, -MonthlyIncome)
 
 model_driver_rf <- randomForest(terminated ~ ., data = driver_data_df[, -1])
 driver_imp_rf <- varImp(model_driver_rf)
