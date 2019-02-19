@@ -51,13 +51,43 @@ The analysis that follows starts with exploratory analyses to understand the dat
 #### Exploratory analysis
 The starting point for every analysis is to become familiar with the data. You can view the raw data [here](https://github.com/jeffidle/hr_attrition_example/blob/master/data/ibm_attrition.csv) but let's take a look at a summarized view of the data. 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(shiny)
+library(rmarkdown)
+library(survival)
+library(survminer)
+library(ggfortify)
+library(scales)
+library(lubridate)
+library(caret)
+library(randomForest)
+library(ipred)
+library(gbm)
+library(broom)
+library(rlang)
+library(gridExtra)
+library(klaR)
+library(rpart)
+library(gt)
+library(survey)
+library(pscl)
+library(C50)
+library(ROCR)
+library(knitr)
+library(PRROC)
+
+```
+
+
+```{r context="data", cache=TRUE, echo = FALSE, message=FALSE, warning=FALSE}
 
 source("hr_example_source_code.R")
 
 ```
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 data_summary_df %>% gt() %>%
         tab_options(table.font.size = 10,
@@ -69,7 +99,7 @@ data_summary_df %>% gt() %>%
 <br>
 Let's visualize the data. I would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
 
 renderPlot({
   term_dist_viz
@@ -80,7 +110,7 @@ renderPlot({
 
 The drop-down box below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
 
 selectInput(inputId = "explore_dim", label = "Choose the variable that you would like to explore:",
             choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
@@ -145,7 +175,7 @@ The chart on the left shows how the probability of retaining ACME employees drop
 
 The chart on the right shows the average reduction in retention probability for each year of service. This chart focuses on the first 20 years since that constitutes the bulk of our workforce. The overall average decrease in retention probability for each year of service is 1.4% if I exclude the outlier in year 40. You can see in years 1 and 10 that the decrease is around 4%--nearly 3x the average. I should work with ACME's HR Business Partners to better understand what might be going on in these years. The first year spike is not unexpected and may be due to onboarding, poor culutural fit, or other factors common to employees accepting a new job at a new company. The tenth-year spike, however, is unusual and should be investigated further.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
 
 renderPlot({
   grid.arrange(survival_viz, risk_viz, ncol = 2)
@@ -156,7 +186,7 @@ renderPlot({
 
 Overall, I don't have major concerns about retention risk by tenure, but I should investigate the spikes in years 1 and 10. I would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What I don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down box below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
 
 selectInput(inputId = "survival_slice", label = "Choose the dimension by which you'd like to slice the retention analysis:", 
   choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
@@ -233,7 +263,7 @@ I will apply a two-step process to find the drivers of ACME's attrition. I will 
 
 The factor importance chart below show us the relative importance of all of the factors in our dataset. This first pass applies a random forest algorithm to compute the relative importance of each factor. Note that you will get different results depending on the algorithm or method you choose.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 renderPlot({
         
@@ -246,7 +276,7 @@ renderPlot({
 
 Now that I know the relative importance of each factor, the next step is to decide which factors to include in our model. The drop-down box below allows you to select the Importance threshold for those factors you want to include in the model. After you choose your desired threshold, I apply the second-pass step of including the selected factors in a logistic regression model. The output table that you will see when you select your threshold includes the output from the model. The coefficient column tells us whether the relationship between that factor level and attrition is positive or negative and the degree to which they are related. Values at or near zero have very little influence on attrition. The p-value column tells us whether the relationship is significant. For purposes of our analysis we will use a significance level of 0.05 (p <= 0.5) but it is important to note that there are [debates in the scientific community](https://www.nature.com/articles/s41562-017-0189-z) swelling around the appropriate significance level to use. 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 # Set Gini index cutoff
 
@@ -317,7 +347,7 @@ I have already completed a large portion of data collection and preparation for 
 
 When building a machine learning model, it can be beneficial to try a few different algorithms and compare their performance. For purposes of this illustration, I will build models using the naive Bayes, logistic regression, random forest and regression tree algorithms. I will not discuss these algorithms in detail. A confusion matrix is an important tool in helping assess the performance of a model. Several metrics can be generated from a confusion matrix. These metrics help us decide whether the model or models will work for our purposes. Following are the confusion matrices for each of the models we created.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 confusion_matrix_et_w %>%
         gt() %>%
@@ -340,7 +370,7 @@ confusion_matrix_et_w %>%
 Following are the metrics derived from the confusion matrices. Different metrics will have different levels of importance depending on the business problem at hand. 
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 perf_metrics_et_w_df %>%
         gt() %>%
@@ -360,7 +390,7 @@ perf_metrics_et_w_df %>%
 First I built a model using 80% of the data available. This initial 80% dataset was my training dataset. I evaluated the initial model performance by applying it to the remaining 20% of the data (test data) and comparing its predicted Attrition with actual Attrition. This training and evaluation approach has some limitations because I am only using 80% of the data available to build the model and test it against a relatively small amount of data. I tested a second approach to building the models called cross-validation. This method uses all of the data as both training and test data. A percentage of data is held out as a test set and tested against the remaining data--just as it is in the train/test split approach. The difference is that test set is put back in as part of the training data and another set is withheld as the test set. Each hold-out test set is called a "fold". I will use 10-fold cross-validation, which means that I will use 90% of the data as training data and the remaining 10% as test data. I will repeat this 10 times so that all of the data is used in one of the 10% test data "folds".  
 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 confusion_matrix_combo %>%
         gt(group = "algorithm") %>%
@@ -382,7 +412,7 @@ The Balanced Accuracy for the naive Bayes model has gone from 76% with the 80/20
 The cross-validated random forest perfectly predicted the outcomes--shouldn't we just use that model? No. This simply means that the random forest found a way to perfectly learn our data and is over-fitted to the data it learned. The model would likely not perform well on data from which it had not learned. Rather than doing a cross-validation on the entire dataset, we should probably cross-validate on an 80% sample and test the model against the remaining 20%. That would give us a better understanding of how the model would perform on data it hasn't seen before.
 
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 perf_metrics_df %>%
         gt() %>%
@@ -419,7 +449,7 @@ Finally, let's try a new model--the C5.0 decision tree. This model will allow me
 ####Feature Selection
 Let's start with intuitively looking at the data for highly-related variables. Our dataset includes columns for the employee's Hourly Rate, Daily Rate, Monthly Rate and Monthly Income. These four variables all measure the same factor--the employee's income. All of the employees in this dataset have the same Standard Hours, so we can use the same formula to calculate their Annual Wages. We will create a single variable called Annual Wages that multiplies their monthly income by 12, then remove these four variables from our dataset. We will then run a random forest algorithm to calculate the importance of each factor and will use the Wald test to assess statical significance of each factor.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 feature_select_print_df %>%
         gt(group = "significant") %>%
@@ -439,7 +469,7 @@ Seven factors are not statistically significant (p-value > 0.05). That leaves us
 The chart below shows the increase in McFadden's R with each factor added to the model. The first attribute with which I start is Age and a model that only uses Age has a McFadden's R of 0.03. This means that the model explains about 3% of the variability in the data. Not a very good model. Adding the Overtime factor to the model increases McFadden's R from 0.03 to 0.97. Simply adding the Overtime model increases the power of the model such that it explains an additional 7% of the variability in the data. The first 20 significant variables add much more to the model than the last 7 not significant variables. The first 20 factors get the model to a 0.356 McFadden's R and the remaining 7 factors only get the McFadden's R to 0.359.
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 renderPlot({
 
@@ -457,7 +487,7 @@ renderPlot({
 Given the preceding analysis, I will use the 20 significant variables in the model and drop the remaining 7 non-significant variables. As you can see in the following tables, performance has improved slightly by dropping those 7 non-significant variables. Balanced accuracy has improved by 0.4%--every little bit counts! Given that we gain slightly in performance with a model that is less complex (20 attributes versus 27), it's worth the effort to reduce the features of the model.
 <br>
 
-```{r  echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r  echo = FALSE, message=FALSE, warning=FALSE}
 
 cm_lr_compare %>%
         gt() %>%
@@ -475,7 +505,7 @@ cm_lr_compare %>%
 ```
 <br>
 <br>
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 perf_metrics_lr %>%
         gt() %>%
@@ -498,7 +528,7 @@ Now let's see if I can out-perform all the models I've built so far. The C5.0 de
 For this model I will revert back to using the original 27 attributes since the decision tree model will make its own decisions about which factors and levels are important and which are not.
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 c5_cm_tbl_print %>%
         gt() %>% 
@@ -515,7 +545,7 @@ c5_cm_tbl_print %>%
 
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 c5_perf_measures_print %>%
         gt() %>%
@@ -538,7 +568,7 @@ If I throw out the cross-validated random forest and cross-validated naive Bayes
 
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 confusion_matrices_master_df %>%
         gt(group = "algorithm") %>%
@@ -567,7 +597,7 @@ For purposes of this example, I will look for metrics that balance across all of
 
 <br>
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 perf_metrics_master_df %>%
         gt() %>%
@@ -593,7 +623,7 @@ perf_metrics_master_df %>%
 #### Receiver Operating Characteristics (ROC) Curve
 Receiver Operating Characteristics (ROC) curves are a popular way to visualize the performance of predictive models. You can use the selection boxes below to choose two models you would like to compare. The chart will show the respective ROC curve for each model in addition to its area under the curve (AUC). The AUC metric is a single metric that tells us how well the model predicts. AUC values closer to 1.0 are better performing models and AUC values closer to 0.5 are poorer performing models. The ROC curve shows us the percentage of false positive predictions relative to the percentage of true positives.
 
-```{r echo = FALSE, message=FALSE, warning=FALSE, context="server"}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 selectInput(inputId = "model1_select", label = "Select the first model you'd like to compare:  ",
             choices = c("Logistic Regression - 80/20 Validation", "Naive Bayes - 80/20 Validation",
