@@ -3,7 +3,7 @@ title: "Example HR research using interactive R Markdown"
 date: "February 18, 2019"
 author: "Jeff Idle"
 output: html_notebook
-runtime: shiny_prerendered
+runtime: shiny
 editor_options: 
   chunk_output_type: inline
 ---
@@ -53,6 +53,8 @@ The starting point for every analysis is to become familiar with the data. You c
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 
+#source("hr_example_source_code.R")
+
 library(tidyverse)
 library(shiny)
 library(rmarkdown)
@@ -78,12 +80,7 @@ library(ROCR)
 library(knitr)
 library(PRROC)
 
-```
-
-
-```{r context="data", cache=TRUE, echo = FALSE, message=FALSE, warning=FALSE}
-
-source("hr_example_source_code.R")
+load(file = "data/analysis_environment.RData")
 
 ```
 
@@ -99,7 +96,7 @@ data_summary_df %>% gt() %>%
 <br>
 Let's visualize the data. I would first like to see how are data is distributed among active and terminated records. The following chart shows that 16% of the records in our dataset are voluntary terminations and the remaining 84% are currently active employees.
 
-```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 renderPlot({
   term_dist_viz
@@ -110,7 +107,7 @@ renderPlot({
 
 The drop-down box below allows you to view the counts of employees by the selected dimension and the distribution of active versus terminated employee records within the levels of that dimension. Feel free to use the drop-down to explore the data further.
 
-```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 selectInput(inputId = "explore_dim", label = "Choose the variable that you would like to explore:",
             choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",
@@ -175,7 +172,7 @@ The chart on the left shows how the probability of retaining ACME employees drop
 
 The chart on the right shows the average reduction in retention probability for each year of service. This chart focuses on the first 20 years since that constitutes the bulk of our workforce. The overall average decrease in retention probability for each year of service is 1.4% if I exclude the outlier in year 40. You can see in years 1 and 10 that the decrease is around 4%--nearly 3x the average. I should work with ACME's HR Business Partners to better understand what might be going on in these years. The first year spike is not unexpected and may be due to onboarding, poor culutural fit, or other factors common to employees accepting a new job at a new company. The tenth-year spike, however, is unusual and should be investigated further.
 
-```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 renderPlot({
   grid.arrange(survival_viz, risk_viz, ncol = 2)
@@ -186,7 +183,7 @@ renderPlot({
 
 Overall, I don't have major concerns about retention risk by tenure, but I should investigate the spikes in years 1 and 10. I would be surprised if there is not a policy, program or issue that explains why more employees leave in their 10th year than normal. What I don't know, however, is whether there are segments of the population where there are more clear patterns in higher retention risk by tenure. Use the drop-down box below to explore various dimensions. If you slice by Education Field you will notice the employees whose education is in Human Resources have a high retention risk increases in years 2 - 4.
 
-```{r context="server", echo = FALSE, message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 
 selectInput(inputId = "survival_slice", label = "Choose the dimension by which you'd like to slice the retention analysis:", 
   choices = c("Business Travel", "Department", "Education", "Education Field", "Gender", "Job Involvement", "Job Role",

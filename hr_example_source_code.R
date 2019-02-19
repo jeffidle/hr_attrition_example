@@ -961,10 +961,10 @@ pred_c5_ab <- prediction(predictions =  c5_model_predictions_probs[ , 2], labels
 
 
 
-# 
+# Save workspace in RData file
 ############################################################################
 
-
+save.image(file = "data/analysis_environment.RData")
 
 
 
